@@ -51,6 +51,15 @@ class SendOp : public framework::OperatorBase {
     for (size_t i = 0; i < ins.size(); i++) {
       if (NeedSend(scope, ins[i])) {
         VLOG(3) << "sending " << ins[i] << " to " << epmap[i];
+
+        // FOR DEBUG
+        auto* var = scope.FindVar(ins[i]);
+        if (var->IsType<framework::LoDTensor>()) {
+            auto lod_ = var->Get<framework::LoDTensor>().lod();
+            std::string lods = framework::LoDToString(lod_);
+            VLOG(3) << "DEBUG Send " << ins[i] << " LoD: " << lods <<" to " << epmap[i];
+        }
+
         // TODO(Yancey1989): we need to use an IO threadpool which has
         // a larger number of threads than the computing threadpool.
         rpc_client->AsyncSendVar(epmap[i], ctx, scope, ins[i]);
