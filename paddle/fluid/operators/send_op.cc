@@ -22,6 +22,8 @@ limitations under the License. */
 #include "paddle/fluid/operators/send_recv_util.h"
 #include "paddle/fluid/platform/profiler.h"
 
+#include "paddle/fluid/operators/debug/print.h"
+
 namespace paddle {
 namespace operators {
 
@@ -52,13 +54,9 @@ class SendOp : public framework::OperatorBase {
       if (NeedSend(scope, ins[i])) {
         VLOG(3) << "sending " << ins[i] << " to " << epmap[i];
 
-        // FOR DEBUG
-        auto* var = scope.FindVar(ins[i]);
-        if (var->IsType<framework::LoDTensor>()) {
-            auto lod_ = var->Get<framework::LoDTensor>().lod();
-            std::string lods = framework::LoDToString(lod_);
-            VLOG(3) << "DEBUG Send " << ins[i] << " LoD: " << lods <<" to " << epmap[i];
-        }
+        // FOR LOD VALUE DEBUG
+        operators::debug::PrintVariableLod(
+            scope, out_var_name, "DEBUG SEND LOD", true, true, true, true, -1);
 
         // TODO(Yancey1989): we need to use an IO threadpool which has
         // a larger number of threads than the computing threadpool.

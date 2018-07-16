@@ -22,6 +22,8 @@ limitations under the License. */
 #include "paddle/fluid/operators/detail/macros.h"
 #include "paddle/fluid/platform/profiler.h"
 
+#include "paddle/fluid/operators/debug/print.h"
+
 namespace paddle {
 namespace operators {
 
@@ -53,6 +55,10 @@ class RecvOp : public framework::OperatorBase {
     if (sync_mode) {
       rpc_client->Wait();
     }
+
+    // FOR LOD VALUE DEBUG
+    operators::debug::PrintVariableLod(scope, out_var_name, "DEBUG RECV LOD",
+                                       true, true, true, true, -1);
   }
 };
 
