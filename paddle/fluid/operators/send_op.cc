@@ -52,11 +52,15 @@ class SendOp : public framework::OperatorBase {
 
     for (size_t i = 0; i < ins.size(); i++) {
       if (NeedSend(scope, ins[i])) {
-        VLOG(3) << "sending " << ins[i] << " to " << epmap[i];
-
         // FOR LOD VALUE DEBUG
         operators::debug::PrintVariableLod(
-            scope, out_var_name, "DEBUG SEND LOD", true, true, true, true, -1);
+            scope, ins[i]), "DEBUG SEND LOD", true, true, true, true, -1);
+      }
+    }
+
+    for (size_t i = 0; i < ins.size(); i++) {
+      if (NeedSend(scope, ins[i])) {
+        VLOG(3) << "sending " << ins[i] << " to " << epmap[i];
 
         // TODO(Yancey1989): we need to use an IO threadpool which has
         // a larger number of threads than the computing threadpool.

@@ -55,10 +55,11 @@ class RecvOp : public framework::OperatorBase {
     if (sync_mode) {
       rpc_client->Wait();
     }
-
-    // FOR LOD VALUE DEBUG
-    operators::debug::PrintVariableLod(scope, out_var_name, "DEBUG RECV LOD",
-                                       true, true, true, true, -1);
+    for (size_t i = 0; i < outs.size(); i++) {
+      // FOR LOD VALUE DEBUG
+      operators::debug::PrintVariableLod(scope, outs[i], "DEBUG RECV LOD", true,
+                                         true, true, true, -1);
+    }
   }
 };
 
