@@ -32,6 +32,7 @@ namespace operators {
 namespace distributed {
 
 using VarMsg = sendrecv::VariableMessage;
+using VarMsgs = sendrecv::VariableMessages;
 
 void GetTensorPayload(framework::Variable* var,
                       const platform::DeviceContext& ctx, VarMsg* request,

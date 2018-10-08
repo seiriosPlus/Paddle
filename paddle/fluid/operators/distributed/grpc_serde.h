@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #pragma once
+
 #include <sys/time.h>
 #include <iostream>
 #include <string>
@@ -33,17 +34,22 @@ namespace paddle {
 namespace operators {
 namespace distributed {
 
-typedef void (*DestroyCallback)(void*);
+typedef void (*DestroyCallback)(void *);
 
-void SerializeToByteBuffer(const std::string& name, framework::Variable* var,
-                           const platform::DeviceContext& ctx,
-                           ::grpc::ByteBuffer* msg,
-                           const std::string& out_varname = std::string());
+void SerializeToByteBuffer(const std::string &name, framework::Variable *var,
+                           const platform::DeviceContext &ctx,
+                           ::grpc::ByteBuffer *msg,
+                           const std::string &out_varname = std::string());
 
-void DeserializeFromByteBuffer(const ::grpc::ByteBuffer& msg,
-                               const platform::DeviceContext& ctx,
-                               const framework::Scope* scope,
-                               framework::Variable** var);
+void SerializeToByteBuffer(const platform::DeviceContext &ctx,
+                           const framework::Scope *scope,
+                           const std::vector<paddle::framework::Tuple> vars,
+                           ::grpc::ByteBuffer *msg);
+
+void DeserializeFromByteBuffer(const ::grpc::ByteBuffer &msg,
+                               const platform::DeviceContext &ctx,
+                               const framework::Scope *scope,
+                               framework::Variable **var);
 
 }  // namespace distributed
 }  // namespace operators

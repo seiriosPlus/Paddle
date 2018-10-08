@@ -81,4 +81,8 @@ message VariableMessage {
   int64 profile = 11;
 }
 
+message VariableMessages {
+  repeated VariableMessage = 1;
+}
+
 message VoidMessage {}

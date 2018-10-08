@@ -15,6 +15,7 @@ limitations under the License. */
 #ifdef PADDLE_WITH_CUDA
 #include <nccl.h>
 #endif
+
 #include <sys/time.h>
 #include <thread>  // NOLINT
 
@@ -32,15 +33,15 @@ namespace paddle {
 namespace operators {
 namespace distributed {
 
-void SerializeToByteBuffer(const std::string& name, framework::Variable* var,
-                           const platform::DeviceContext& ctx,
-                           ::grpc::ByteBuffer* msg,
-                           const std::string& out_name) {
+void SerializeToByteBuffer(const std::string &name, framework::Variable *var,
+                           const platform::DeviceContext &ctx,
+                           ::grpc::ByteBuffer *msg,
+                           const std::string &out_name) {
   // Default DestroyCallback does nothing, When using GPU
   // the CPU buffer need to be freed.
-  DestroyCallback destroy_callback = [](void* backing) {};
+  DestroyCallback destroy_callback = [](void *backing) {};
   VarMsg request;
-  void* payload = nullptr;
+  void *payload = nullptr;
   size_t payload_size;
 
   request.set_varname(name);
@@ -77,7 +78,7 @@ void SerializeToByteBuffer(const std::string& name, framework::Variable* var,
 #ifdef PADDLE_WITH_CUDA
     // GPU data is copied to CPU buffer when sending,
     // free the buffer when possible.
-    destroy_callback = [](void* backing) {
+    destroy_callback = [](void *backing) {
       platform::CUDAPinnedPlace cuda_pinned;
       memory::Free(cuda_pinned, backing);
     };
@@ -87,8 +88,8 @@ void SerializeToByteBuffer(const std::string& name, framework::Variable* var,
   std::string header;
   request.AppendToString(&header);
   auto buffer = std::unique_ptr<char[]>(new char[1024]);
-  void* buf = buffer.get();
-  ProtoEncodeHelper e(static_cast<char*>(buf), 1024);
+  void *buf = buffer.get();
+  ProtoEncodeHelper e(static_cast<char *>(buf), 1024);
   e.WriteRawBytes(std::string(header.data(), header.size()));
 // NCCLID is copied directly to the message, return bytebuffer
 // with only one slice if serializing NCCLID.
@@ -96,12 +97,12 @@ void SerializeToByteBuffer(const std::string& name, framework::Variable* var,
   if (var->IsType<ncclUniqueId>()) {
     e.WriteVarlengthBeginning(VarMsg::kSerializedFieldNumber,
                               NCCL_UNIQUE_ID_BYTES);
-    const ncclUniqueId& uid = var->Get<ncclUniqueId>();
+    const ncclUniqueId &uid = var->Get<ncclUniqueId>();
     e.WriteRawBytes(std::string(uid.internal, NCCL_UNIQUE_ID_BYTES));
 
     // for serialize NCCL_ID
     ::grpc::Slice slices(e.size());
-    memcpy(const_cast<uint8_t*>(slices.begin()), e.data(), e.size());
+    memcpy(const_cast<uint8_t *>(slices.begin()), e.data(), e.size());
     ::grpc::ByteBuffer tmp(&slices, 1);
     msg->Swap(&tmp);
     return;
@@ -113,28 +114,28 @@ void SerializeToByteBuffer(const std::string& name, framework::Variable* var,
   ::grpc::Slice slices[4];  // metadata, tensor, rows meta, rows
   int num_slices = 2;       // only SelectedRows have rows buffer
   slices[0] = ::grpc::Slice(e.size());
-  memcpy(const_cast<uint8_t*>(slices[0].begin()), e.data(), e.size());
+  memcpy(const_cast<uint8_t *>(slices[0].begin()), e.data(), e.size());
   slices[1] = ::grpc::Slice(
       grpc_slice_new_with_user_data(payload, payload_size, destroy_callback,
-                                    static_cast<char*>(payload)),
+                                    static_cast<char *>(payload)),
       ::grpc::Slice::STEAL_REF);
 
   if (var->IsType<framework::SelectedRows>()) {
-    auto* slr = var->GetMutable<framework::SelectedRows>();
-    ProtoEncodeHelper e2(static_cast<char*>(buf), 128);
+    auto *slr = var->GetMutable<framework::SelectedRows>();
+    ProtoEncodeHelper e2(static_cast<char *>(buf), 128);
     size_t rows_memory_size =
         slr->rows().size() * framework::SizeOfType(typeid(int64_t));
     e2.WriteVarlengthBeginning(VarMsg::kRowsFieldNumber, rows_memory_size);
     slices[2] = ::grpc::Slice(e2.size());
-    memcpy(const_cast<uint8_t*>(slices[2].begin()), e2.data(), e2.size());
+    memcpy(const_cast<uint8_t *>(slices[2].begin()), e2.data(), e2.size());
 
     slices[3] = ::grpc::Slice(
         grpc_slice_new_with_user_data(
-            const_cast<void*>(
-                reinterpret_cast<const void*>(slr->rows().data())),
-            rows_memory_size, [](void* backing) {},
-            const_cast<char*>(
-                reinterpret_cast<const char*>(slr->rows().data()))),
+            const_cast<void *>(
+                reinterpret_cast<const void *>(slr->rows().data())),
+            rows_memory_size, [](void *backing) {},
+            const_cast<char *>(
+                reinterpret_cast<const char *>(slr->rows().data()))),
         ::grpc::Slice::STEAL_REF);
     num_slices = 4;
   }
@@ -143,10 +144,49 @@ void SerializeToByteBuffer(const std::string& name, framework::Variable* var,
   msg->Swap(&tmp);
 }
 
-void DeserializeFromByteBuffer(const ::grpc::ByteBuffer& msg,
-                               const platform::DeviceContext& ctx,
-                               const framework::Scope* scope,
-                               framework::Variable** var) {
+void SerializeToByteBuffer(const platform::DeviceContext &ctx,
+                           const framework::Scope *scope,
+                           const std::vector<paddle::framework::Tuple> vars,
+                           ::grpc::ByteBuffer *msg) {
+  int num_slices = 0;
+  std::vector<::grpc::Slice> slices;
+
+  for (auto var_tuple : vars) {
+    std::string in_var = boost::get<std::string>(tuple->get(0));
+    std::string out_var = boost::get<std::string>(tuple->get(1));
+
+    auto *var = p_scope->FindVar(in_var);
+
+    ::grpc::ByteBuffer req;
+    SerializeToByteBuffer(in_var, var, &ctx, &req);
+    std::vector<::grpc::Slice> var_slices;
+    req.Dump(&var_slices);
+
+    num_slices += var_slices.size() + 1;
+
+    // write var msg meta data
+    auto buffer = std::unique_ptr<char[]>(new char[1024]);
+    void *buf = buffer.get();
+    ProtoEncodeHelper e(static_cast<char *>(buf), 128);
+    size_t var_msg_size = req.Length();
+    e2.WriteVarlengthBeginning(VarMsgs::kVariableMessageFieldNumber,
+                               var_msg_size);
+    ::grpc::Slice header_slice = ::grpc::Slice(e.size());
+    memcpy(const_cast<uint8_t *>(header_slice.begin()), e.data(), e.size());
+    slices.push_back(header_slice);
+
+    // write var msg data
+    slices.insert(slices.end(), var_slices.begin(), var_slices.end());
+  }
+
+  ::grpc::ByteBuffer tmp(&slices[0], num_slices);
+  msg->Swap(&tmp);
+}
+
+void DeserializeFromByteBuffer(const ::grpc::ByteBuffer &msg,
+                               const platform::DeviceContext &ctx,
+                               const framework::Scope *scope,
+                               framework::Variable **var) {
   operators::distributed::GRPCVariableResponse resp(scope, &ctx);
   PADDLE_ENFORCE(resp.Parse(msg) == 0, "parse bytebuffer to tensor error!");
   *var = resp.GetVar();
