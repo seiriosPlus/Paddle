@@ -12,9 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 
-#include <gflags/gflags.h>
-#include <glog/logging.h>
-
+#include "paddle/fluid/framework/operator.h"
 #include <algorithm>
 #include <sstream>
 #include <string>
@@ -25,7 +23,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/executor.h"
 #include "paddle/fluid/framework/lod_tensor.h"
 #include "paddle/fluid/framework/op_proto_maker.h"
-#include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/framework/shape_inference.h"
 #include "paddle/fluid/framework/transfer_scope_cache.h"
 #include "paddle/fluid/framework/var_type.h"
@@ -35,6 +32,8 @@ DECLARE_bool(benchmark);
 DEFINE_bool(check_nan_inf, false,
             "Checking whether operator produce NAN/INF or not. It will be "
             "extremely slow so please use this flag wisely.");
+DEFINE_int32(inner_op_parallelism, 0, "number of threads for inner op");
+DEFINE_int32(min_param_size_to_use_multithread, 0, "");
 
 namespace paddle {
 namespace framework {
