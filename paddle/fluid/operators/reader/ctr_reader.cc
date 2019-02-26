@@ -30,37 +30,33 @@ namespace paddle {
 namespace operators {
 namespace reader {
 
-static inline void string_split(const std::string& s, const char delimiter,
-                                std::vector<std::string>* output) {
-  size_t start = 0;
-  size_t end = s.find_first_of(delimiter);
-
-  while (end <= std::string::npos) {
-    output->emplace_back(s.substr(start, end - start));
-    if (end == std::string::npos) {
-      break;
-    }
-    start = end + 1;
-    end = s.find_first_of(delimiter, start);
+static inline std::vector<std::string> split(const std::string& s,
+                                             char delimiter) {
+  std::vector<std::string> tokens;
+  std::string token;
+  std::istringstream tokenStream(s);
+  while (std::getline(tokenStream, token, delimiter)) {
+    tokens.push_back(token);
   }
+  return tokens;
 }
 
 static inline void parse_line(
     const std::string& line,
     const std::unordered_map<std::string, size_t>& slot_to_index,
-    int64_t* label,
+    const std::unordered_map<std::string, size_t>& slot_to_size, int64_t* label,
     std::unordered_map<std::string, std::vector<int64_t>>* slot_to_data) {
-  std::vector<std::string> ret;
-  string_split(line, ' ', &ret);
-  *label = std::stoi(ret[2]) > 0;
+  std::vector<std::string> ret = split(line, ' ');
+
+  *label = std::stoi(ret[2]) >= 1 ? 1 : 0;
 
   for (size_t i = 3; i < ret.size(); ++i) {
-    const std::string& item = ret[i];
-    std::vector<std::string> feasign_and_slot;
-    string_split(item, ':', &feasign_and_slot);
+    std::vector<std::string> feasign_and_slot = split(ret[i], ':');
+
     if (feasign_and_slot.size() == 2 &&
         slot_to_index.find(feasign_and_slot[1]) != slot_to_index.end()) {
       int64_t feasign = std::strtoll(feasign_and_slot[0].c_str(), NULL, 10);
+      feasign = feasign % slot_to_size.at(feasign_and_slot[1]);
       (*slot_to_data)[feasign_and_slot[1]].push_back(feasign);
     }
   }
@@ -169,6 +165,40 @@ void ReadSvmData(const DataDesc& data_desc, std::shared_ptr<Reader> reader,
     slot_to_index[data_desc.sparse_slot_ids_[i]] = i;
   }
 
+  std::unordered_map<std::string, size_t> slot_to_size;
+
+  slot_to_size["1"] = 10000000;
+  slot_to_size["2"] = 100;
+  slot_to_size["3"] = 100;
+  slot_to_size["4"] = 100;
+  slot_to_size["5"] = 100;
+  slot_to_size["6"] = 100;
+  slot_to_size["7"] = 100;
+  slot_to_size["8"] = 100;
+  slot_to_size["9"] = 100;
+  slot_to_size["10"] = 100;
+  slot_to_size["11"] = 100000;
+  slot_to_size["12"] = 100000;
+  slot_to_size["13"] = 2000;
+  slot_to_size["14"] = 500000;
+  slot_to_size["15"] = 3000;
+  slot_to_size["16"] = 500;
+  slot_to_size["17"] = 5000;
+  slot_to_size["18"] = 1000000;
+  slot_to_size["19"] = 100000;
+  slot_to_size["20"] = 500000;
+  slot_to_size["21"] = 3000;
+  slot_to_size["22"] = 1500000;
+  slot_to_size["23"] = 1000000;
+  slot_to_size["24"] = 10000;
+  slot_to_size["25"] = 100;
+  slot_to_size["26"] = 200;
+  slot_to_size["27"] = 50000;
+  slot_to_size["28"] = 300;
+  slot_to_size["29"] = 50;
+  slot_to_size["30"] = 500;
+  slot_to_size["31"] = 300000;
+
   std::string line;
 
   std::vector<std::unordered_map<std::string, std::vector<int64_t>>> batch_data;
@@ -187,7 +217,7 @@ void ReadSvmData(const DataDesc& data_desc, std::shared_ptr<Reader> reader,
         reader->NextLine(&line);
         std::unordered_map<std::string, std::vector<int64_t>> slot_to_data;
         int64_t label;
-        parse_line(line, slot_to_index, &label, &slot_to_data);
+        parse_line(line, slot_to_index, slot_to_size, &label, &slot_to_data);
         batch_data.push_back(slot_to_data);
         batch_label.push_back(label);
       } else {
@@ -239,15 +269,13 @@ static inline void parse_csv_line(
     const std::string& line, const DataDesc& data_desc, int64_t* label,
     std::vector<std::vector<float>>* dense_datas,
     std::vector<std::vector<int64_t>>* sparse_datas) {
-  std::vector<std::string> ret;
-  string_split(line, ' ', &ret);
+  std::vector<std::string> ret = split(line, ' ');
   *label = std::stol(ret[0]);
   dense_datas->resize(data_desc.dense_slot_index_.size());
   for (size_t i = 0; i < data_desc.dense_slot_index_.size(); ++i) {
     int slot_idx = data_desc.dense_slot_index_[i];
     auto& slot_data = ret[slot_idx];
-    std::vector<std::string> data_in_slot_str;
-    string_split(slot_data, ',', &data_in_slot_str);
+    std::vector<std::string> data_in_slot_str = split(slot_data, ',');
     std::vector<float> data_in_slot;
     for (auto& data_str : data_in_slot_str) {
       (*dense_datas)[i].push_back(std::stof(data_str));
@@ -257,8 +285,7 @@ static inline void parse_csv_line(
   for (size_t i = 0; i < data_desc.sparse_slot_index_.size(); ++i) {
     int slot_idx = data_desc.sparse_slot_index_[i];
     auto& slot_data = ret[slot_idx];
-    std::vector<std::string> data_in_slot_str;
-    string_split(slot_data, ',', &data_in_slot_str);
+    std::vector<std::string> data_in_slot_str = split(slot_data, ',');
     std::vector<int64_t> data_in_slot;
     for (auto& data_str : data_in_slot_str) {
       auto id = std::stol(data_str);
@@ -365,10 +392,12 @@ void ReadThread(const std::vector<std::string>& file_list,
                 std::shared_ptr<LoDTensorBlockingQueue> queue) {
   VLOG(3) << "[" << thread_id << "]"
           << " reader thread start! thread_id = " << thread_id;
+
   for (auto& file : file_list) {
     VLOG(3) << "[" << thread_id << "]"
             << " file " << file;
   }
+
   (*thread_status)[thread_id] = Running;
   VLOG(3) << "set status to running";
 
