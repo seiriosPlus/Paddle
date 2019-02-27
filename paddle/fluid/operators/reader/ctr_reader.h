@@ -37,12 +37,14 @@ namespace reader {
 enum ReaderThreadStatus { Running, Stopped };
 
 struct DataDesc {
-  DataDesc(int batch_size, const std::vector<std::string>& file_names,
+  DataDesc(int batch_size, int bulk_size,
+           const std::vector<std::string>& file_names,
            const std::string& file_type, const std::string& file_format,
            const std::vector<int>& dense_slot_index,
            const std::vector<int>& sparse_slot_index,
            const std::vector<std::string>& sparse_slot_ids)
       : batch_size_(batch_size),
+        bulk_size_(bulk_size),
         file_names_(file_names),
         file_type_(file_type),
         file_format_(file_format),
@@ -51,6 +53,7 @@ struct DataDesc {
         sparse_slot_ids_(sparse_slot_ids) {}
 
   const int batch_size_;
+  const int bulk_size_;
   const std::vector<std::string> file_names_;
   const std::string file_type_;    // gzip or plain
   const std::string file_format_;  // csv or svm
@@ -64,6 +67,7 @@ struct DataDesc {
 inline std::ostream& operator<<(std::ostream& os, const DataDesc& data_desc) {
   os << "data_desc:\n";
   os << "\tbatch_size -> " << data_desc.batch_size_ << "\n";
+  os << "\tbulk_size -> " << data_desc.bulk_size_ << "\n";
   os << "\tfile_type -> " << data_desc.file_type_ << "\n";
   os << "\tfile_format -> " << data_desc.file_format_ << "\n";
   os << "\tfile_names -> {";

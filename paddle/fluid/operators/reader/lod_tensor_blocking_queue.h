@@ -15,7 +15,10 @@
 #pragma once
 
 #include <memory>
+#include <random>
 #include <vector>
+
+#include <boost/thread/thread.hpp>
 
 #include "paddle/fluid/framework/blockingconcurrentqueue.h"
 #include "paddle/fluid/framework/ddim.h"
@@ -34,7 +37,10 @@ class LoDTensorBlockingQueue {
 
  private:
   explicit LoDTensorBlockingQueue(size_t capacity, bool speed_test_mode = false)
-      : queue_(capacity), capacity_(capacity) {}
+      : queue_(capacity), capacity_(capacity) {
+    random_engine_ = std::make_shared<std::mt19937>(0);
+    int_dist_ = std::make_shared<std::uniform_int_distribution<>>(60, 120);
+  }
 
  public:
   bool Push(const std::vector<framework::LoDTensor>& lod_tensor_vec) {
@@ -45,9 +51,20 @@ class LoDTensorBlockingQueue {
     return queue_.enqueue(std::move(lod_tensor_vec));
   }
 
+  bool Push(std::vector<framework::LoDTensor>* lod_tensor_vecs, int count) {
+    return queue_.enqueue_bulk(lod_tensor_vecs, count);
+  }
+
   std::vector<framework::LoDTensor> Pop(bool* ok = nullptr) {
     std::vector<framework::LoDTensor> lod_tensor_vec;
-    while (!queue_.wait_dequeue_timed(lod_tensor_vec, 1000)) {
+
+    int wait_mils = (*int_dist_)(*random_engine_);
+
+    if (queue_.size_approx() <= 20) {
+      boost::this_thread::sleep(boost::posix_time::milliseconds(wait_mils));
+    }
+
+    while (!queue_.wait_dequeue_timed(lod_tensor_vec, wait_mils)) {
       if (queue_.is_closed()) {
         break;
       }
@@ -71,6 +88,8 @@ class LoDTensorBlockingQueue {
   // BlockingQueue<std::vector<framework::LoDTensor>> queue_;
   moodycamel::BlockingConcurrentQueue<std::vector<framework::LoDTensor>> queue_;
   size_t capacity_;
+  std::shared_ptr<std::mt19937> random_engine_;
+  std::shared_ptr<std::uniform_int_distribution<>> int_dist_;
 };
 
 class LoDTensorBlockingQueueHolder {

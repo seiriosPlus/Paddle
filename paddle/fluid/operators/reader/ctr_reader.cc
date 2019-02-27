@@ -174,6 +174,8 @@ void ReadSvmData(const DataDesc& data_desc, std::shared_ptr<Reader> reader,
   std::vector<std::unordered_map<std::string, std::vector<int64_t>>> batch_data;
   std::vector<int64_t> batch_label;
 
+  std::vector<std::vector<framework::LoDTensor>> lod_vecs;
+
   while (reader->HasNext()) {
     batch_data.clear();
     batch_data.reserve(data_desc.batch_size_);
@@ -229,8 +231,19 @@ void ReadSvmData(const DataDesc& data_desc, std::shared_ptr<Reader> reader,
            batch_label.size() * sizeof(int64_t));
     lod_datas.push_back(label_tensor);
 
-    queue->Push(lod_datas);
+    lod_vecs.push_back(lod_datas);
+
+    if (lod_vecs.size() == data_desc.bulk_size_) {
+      queue->Push(lod_vecs.data(), lod_vecs.size());
+      lod_vecs.clear();
+      lod_vecs.reserve(data_desc.bulk_size_);
+    }
+
     VLOG(4) << "push one data, queue_size=" << queue->Size();
+  }
+
+  if (lod_vecs.size() != 0) {
+    queue->Push(lod_vecs.data(), lod_vecs.size());
   }
 }
 

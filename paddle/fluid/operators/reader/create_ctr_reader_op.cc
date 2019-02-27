@@ -46,10 +46,11 @@ class CreateCTRReaderOp : public framework::OperatorBase {
     auto dense_slot_index = Attr<std::vector<int>>("dense_slot_index");
     auto sparse_slot_index = Attr<std::vector<int>>("sparse_slot_index");
     auto batch_size = Attr<int>("batch_size");
+    auto bulk_size = Attr<int>("bulk_size");
     auto file_type = Attr<std::string>("file_type");
     auto file_format = Attr<std::string>("file_format");
     auto file_list = Attr<std::vector<std::string>>("file_list");
-    DataDesc data_desc(batch_size, file_list, file_type, file_format,
+    DataDesc data_desc(batch_size, bulk_size, file_list, file_type, file_format,
                        dense_slot_index, sparse_slot_index, sparse_slots);
     VLOG(1) << data_desc;
     out->Reset(std::make_shared<CTRReader>(queue_holder->GetQueue(), thread_num,
@@ -64,6 +65,7 @@ class CreateCTRReaderOpMaker : public FileReaderMakerBase {
              "Name of the `LoDTensorBlockingQueueHolder` variable");
     AddAttr<int>("thread_num", "the thread num to read data");
     AddAttr<int>("batch_size", "the batch size of read data");
+    AddAttr<int>("bulk_size", "the bulk size of read data");
     AddAttr<std::string>("file_type", "plain or gzip").SetDefault("plain");
     AddAttr<std::string>("file_format", "svm or csv").SetDefault("csv");
     AddAttr<std::vector<std::string>>("file_list",

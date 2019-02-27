@@ -59,6 +59,7 @@ def ctr_reader(
         capacity,
         thread_num,
         batch_size,
+        bulk_size,
         file_list,
         slots,
         name=None):
@@ -90,6 +91,7 @@ def ctr_reader(
        capacity(int): The buffer capacity maintained by :code:`py_reader`.
        thread_num(int): the thread num to read files by cpp reader.
        batch_size(int): batch size of data.
+       bulk_size(int): bulk size the queue each push.
        file_list(list(str)): List of file names that need to read.
        slots(list(int64)): list of slot id.
        name(string): The prefix Python queue name and Reader name. None will
@@ -107,7 +109,7 @@ def ctr_reader(
         py_reader = fluid.contrib.ctr_reader.ctr_reader(
           feed_dict=datas, file_type='plain', file_format='csv',
           file_list=file_list, dense_slot_indexs=[1, 2, 3, 4], sparse_slot_indexs=[],
-          capacity=64, thread_num=20, batch_size=1000, slots=[], name='ctr_reader')
+          capacity=64, thread_num=20, batch_size=1000, bulk_size=20, slots=[], name='ctr_reader')
 
     """
     if name is None:
@@ -130,6 +132,7 @@ def ctr_reader(
             'use_data_config': False,
             'thread_num': thread_num,
             'batch_size': batch_size,
+            'bulk_size': bulk_size,
             'file_list': file_list,
             'file_type': file_type,
             'file_format': file_format,
