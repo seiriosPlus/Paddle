@@ -18,8 +18,6 @@
 #include <random>
 #include <vector>
 
-#include <boost/thread/thread.hpp>
-
 #include "paddle/fluid/framework/blockingconcurrentqueue.h"
 #include "paddle/fluid/framework/ddim.h"
 #include "paddle/fluid/framework/lod_tensor.h"
@@ -59,10 +57,6 @@ class LoDTensorBlockingQueue {
     std::vector<framework::LoDTensor> lod_tensor_vec;
 
     int wait_mils = (*int_dist_)(*random_engine_);
-
-    if (queue_.size_approx() <= 20) {
-      boost::this_thread::sleep(boost::posix_time::milliseconds(wait_mils));
-    }
 
     while (!queue_.wait_dequeue_timed(lod_tensor_vec, wait_mils)) {
       if (queue_.is_closed()) {
