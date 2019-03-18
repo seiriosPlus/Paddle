@@ -2938,7 +2938,7 @@ class Parameter(Variable):
             be applied on this parameter.
     """
 
-    def __init__(self, block, shape, dtype, **kwargs):
+    def __init__(self, block, shape, dtype, type, **kwargs):
         if shape is None or dtype is None:
             raise ValueError("Parameter must set shape and dtype")
         if len(shape) == 0:
@@ -2950,7 +2950,13 @@ class Parameter(Variable):
                                  "batch-size")
 
         Variable.__init__(
-            self, block, persistable=True, shape=shape, dtype=dtype, **kwargs)
+            self,
+            block,
+            persistable=True,
+            shape=shape,
+            dtype=dtype,
+            type=type,
+            **kwargs)
         self.trainable = kwargs.get('trainable', True)
 
         self.optimize_attr = kwargs.get('optimize_attr', {'learning_rate': 1.0})

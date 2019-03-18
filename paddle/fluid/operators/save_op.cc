@@ -105,11 +105,15 @@ class SaveOp : public framework::OperatorBase {
   void SaveSelectedRows(const framework::Scope &scope,
                         const platform::Place &place,
                         framework::Variable *var) const {
-    auto *lt_var = scope.FindVar(LOOKUP_TABLE_PATH)->GetMutable<std::string>();
-    PADDLE_ENFORCE(
-        lt_var != nullptr,
-        "Can not find variable kLookupTablePath for SaveSelectedRows");
-    std::string filename = lt_var->data();
+    std::string filename;
+
+    auto *lt_var = scope.FindVar(LOOKUP_TABLE_PATH);
+    if (lt_var == nullptr) {
+      filename = Attr<std::string>("file_path");
+    } else {
+      filename = lt_var->Get<std::string>().data();
+    }
+
     VLOG(4) << "SaveSelectedRows get File name: " << filename;
 
     MkDirRecursively(DirName(filename).c_str());
