@@ -382,8 +382,20 @@ def embedding(input,
     remote_prefetch = is_sparse and (not is_distributed)
     if remote_prefetch:
         assert is_sparse is True and is_distributed is False
-    w = helper.create_parameter(
-        attr=helper.param_attr, shape=size, dtype=dtype, is_bias=False)
+    if is_sparse:
+        w = helper.create_parameter(
+            attr=helper.param_attr,
+            type=core.VarDesc.VarType.SELECTED_ROWS,
+            shape=size,
+            dtype=dtype,
+            is_bias=False)
+    else:
+        w = helper.create_parameter(
+            attr=helper.param_attr,
+            type=core.VarDesc.VarType.LOD_TENSOR,
+            shape=size,
+            dtype=dtype,
+            is_bias=False)
     tmp = helper.create_variable_for_type_inference(dtype)
     padding_idx = -1 if padding_idx is None else padding_idx if padding_idx >= 0 else (
         size[0] + padding_idx)
