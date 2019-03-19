@@ -24,6 +24,8 @@ limitations under the License. */
 namespace paddle {
 namespace operators {
 
+static constexpr char kTestMode[] = "@TestMode@";
+
 class PrefetchOp : public framework::OperatorBase {
  public:
   PrefetchOp(const std::string& type, const framework::VariableNameMap& inputs,
@@ -37,6 +39,7 @@ class PrefetchOp : public framework::OperatorBase {
     auto outs = Outputs("Out");
 
     std::vector<std::string> epmap = Attr<std::vector<std::string>>("epmap");
+    auto test_mode = Attr<bool>("test_mode");
 
     platform::DeviceContextPool& pool = platform::DeviceContextPool::Instance();
     auto& ctx = *pool.Get(place);
@@ -49,9 +52,9 @@ class PrefetchOp : public framework::OperatorBase {
     for (size_t i = 0; i < ins.size(); i++) {
       if (NeedSend(scope, ins[i])) {
         VLOG(3) << "sending " << ins[i] << " to " << epmap[i] << " to get "
-                << outs[i] << " back";
-        rets.push_back(rpc_client->AsyncPrefetchVar(epmap[i], ctx, scope,
-                                                    ins[i], outs[i]));
+                << outs[i] << " back with test_mode " << test_mode;
+        rets.push_back(rpc_client->AsyncPrefetchVar(
+            epmap[i], ctx, scope, ins[i], outs[i], test_mode ? kTestMode : ""));
       } else {
         VLOG(3) << "don't send no-initialied variable: " << ins[i];
       }
@@ -76,6 +79,10 @@ class PrefetchOpMaker : public framework::OpProtoAndCheckerMaker {
         "(string vector, default 127.0.0.1:6164)"
         "Server endpoints in the order of input variables for mapping")
         .SetDefault({"127.0.0.1:6164"});
+    AddAttr<bool>("test_mode",
+                  "In test mode, prefetch_op will "
+                  "send it to parameter server")
+        .SetDefault(false);
     AddComment(R"DOC(
 Prefetch operator
 

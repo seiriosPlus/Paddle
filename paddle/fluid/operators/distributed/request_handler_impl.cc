@@ -33,6 +33,7 @@ namespace distributed {
 // define LOOKUP_TABLE_PATH for checkpoint notify to save lookup table variables
 // to directory specified.
 constexpr char LOOKUP_TABLE_PATH[] = "kLookupTablePath";
+static constexpr char kTestMode[] = "@TestMode@";
 
 bool RequestSendHandler::Handle(const std::string& varname,
                                 framework::Scope* scope,
@@ -155,6 +156,15 @@ bool RequestPrefetchHandler::Handle(const std::string& varname,
   VLOG(4) << "RequestPrefetchHandler " << varname;
 
   if (table_name.empty()) {
+    auto var_desc = program_->Block(0).FindVar(out_var_name);
+    InitializeVariable(*outvar, var_desc->GetType());
+    executor_->RunPreparedContext(
+        (*prefetch_var_name_to_prepared_ctx_)[varname].get(), scope);
+  } else if (table_name == kTestMode) {
+    auto* test_mode = local_scope.Var(kTestMode);
+    auto* is_test = test_mode->GetMutable<bool>();
+    *is_test = true;
+
     auto var_desc = program_->Block(0).FindVar(out_var_name);
     InitializeVariable(*outvar, var_desc->GetType());
     executor_->RunPreparedContext(

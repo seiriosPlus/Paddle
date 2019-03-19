@@ -22,6 +22,7 @@ namespace paddle {
 namespace operators {
 
 constexpr int64_t kNoPadding = -1;
+constexpr char kTestMode[] = "@TestMode@";
 
 class LookupSparseTableInferShape : public framework::InferShapeBase {
  public:
@@ -45,7 +46,13 @@ class LookupSparseTableOp : public framework::OperatorBase {
     auto out_var = scope.FindVar(Output("Out"));
     auto w_var = scope.FindVar(Input("W"));
     auto ids_var = scope.FindVar(Input("Ids"));
+
     auto is_test = Attr<bool>("is_test");
+
+    if (scope.FindLocalVar(kTestMode)) {
+      is_test = true;
+      VLOG(3) << "get lookup_table test mode = True from var";
+    }
 
     PADDLE_ENFORCE(out_var->IsType<framework::LoDTensor>(),
                    "The type of Out var should be LodTensor.");
