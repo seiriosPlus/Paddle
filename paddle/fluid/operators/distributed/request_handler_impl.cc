@@ -162,8 +162,8 @@ bool RequestPrefetchHandler::Handle(const std::string& varname,
         (*prefetch_var_name_to_prepared_ctx_)[varname].get(), scope);
   } else if (table_name == kTestMode) {
     auto* test_mode = local_scope.Var(kTestMode);
-    auto* is_test = test_mode->GetMutable<bool>();
-    *is_test = true;
+    auto* is_test = test_mode->GetMutable<int>();
+    *is_test = 1;
 
     auto var_desc = program_->Block(0).FindVar(out_var_name);
     InitializeVariable(*outvar, var_desc->GetType());

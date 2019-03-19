@@ -49,7 +49,9 @@ class LookupSparseTableOp : public framework::OperatorBase {
 
     auto is_test = Attr<bool>("is_test");
 
-    if (scope.FindLocalVar(kTestMode)) {
+    auto test_mode_var = scope.FindLocalVar(kTestMode);
+
+    if (test_mode_var != nullptr && test_mode_var->Get<int>() == 1) {
       is_test = true;
       VLOG(3) << "get lookup_table test mode = True from var";
     }

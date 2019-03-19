@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from __future__ import print_function
+
+import os
 """
 Steps to transpile trainer:
 1. split variable to multiple blocks, aligned by product(dim[1:]) (width).
@@ -1282,6 +1284,7 @@ class DistributeTranspiler(object):
             outputs={"Out": self.all_prefetch_output_vars},
             attrs={
                 "epmap": pserver_endpoints,
+                "test_mode": bool(int(os.getenv("PREFETCH_TEST_MODE", "0")))
                 # FIXME(qiao) temporarily disable this config because prefetch
                 # is not act as other rpc op, it's more like a forward op
                 # RPC_OP_ROLE_ATTR_NAME: RPC_OP_ROLE_ATTR_VALUE
