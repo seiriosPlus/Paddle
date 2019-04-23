@@ -82,13 +82,22 @@ def is_persistable(var):
 
 def _clone_var_in_block_(block, var):
     assert isinstance(var, Variable)
-    return block.create_var(
-        name=var.name,
-        shape=var.shape,
-        dtype=var.dtype,
-        type=var.type,
-        lod_level=var.lod_level,
-        persistable=True)
+
+    if var.type == core.VarDesc.VarType.SELECTED_ROWS:
+        return block.create_var(
+            name=var.name,
+            shape=var.shape,
+            dtype=var.dtype,
+            type=var.type,
+            persistable=True)
+    else:
+        return block.create_var(
+            name=var.name,
+            shape=var.shape,
+            dtype=var.dtype,
+            type=var.type,
+            lod_level=var.lod_level,
+            persistable=True)
 
 
 def save_vars(executor,
