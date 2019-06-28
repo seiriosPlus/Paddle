@@ -203,8 +203,6 @@ __all__ = [
     'where',
     'sign',
     'deformable_conv',
-    'unfold',
-    'deformable_roi_pooling',
     'match_matrix_tensor',
     'var_conv_2d',
     'sequence_topk_avg_pooling',
@@ -4062,7 +4060,7 @@ def sequence_expand(x, y, ref_level=-1, name=None):
 
     Examples:
         .. code-block:: python
-	
+    
             import paddle.fluid.layers as layers
             x = fluid.layers.data(name='x', shape=[10], dtype='float32')
             y = fluid.layers.data(name='y', shape=[10, 20],
@@ -4218,22 +4216,22 @@ def sequence_unpad(x, length, name=None):
 
     .. code-block:: text
 
-	Example:
+    Example:
 
-	Given input Variable **x**:
-	    x.data = [[ 1.0,  2.0,  3.0,  4.0,  5.0],
-		      [ 6.0,  7.0,  8.0,  9.0, 10.0],
-		      [11.0, 12.0, 13.0, 14.0, 15.0]],
+    Given input Variable **x**:
+        x.data = [[ 1.0,  2.0,  3.0,  4.0,  5.0],
+              [ 6.0,  7.0,  8.0,  9.0, 10.0],
+              [11.0, 12.0, 13.0, 14.0, 15.0]],
 
-	in which there are 3 sequences padded to length 5, and the acutal length
-	specified by input Variable **length**:
+    in which there are 3 sequences padded to length 5, and the acutal length
+    specified by input Variable **length**:
 
-	    length.data = [[2], [3], [4]],
+        length.data = [[2], [3], [4]],
 
-	after unpadding, the output Variable will be:
+    after unpadding, the output Variable will be:
 
-	    out.data = [[1.0, 2.0, 6.0, 7.0, 8.0, 11.0, 12.0, 13.0, 14.0]]
-	    out.lod = [[2, 3, 4]]
+        out.data = [[1.0, 2.0, 6.0, 7.0, 8.0, 11.0, 12.0, 13.0, 14.0]]
+        out.lod = [[2, 3, 4]]
 
     Args:
         x(Variable): Input Variable which contains the padded sequences with
@@ -4507,7 +4505,7 @@ def lstm_unit(x_t,
 
             i_t = \sigma(L_{i_t})
 
-    This layer has two outputs including :math:`h_t` and :math:`c_t`.
+    This layer has two outputs including :math:`h_t` and :math:`o_t`.
 
     Args:
         x_t (Variable): The input value of current step, a 2-D tensor with shape
@@ -5311,7 +5309,7 @@ def topk(input, k, name=None):
 
 def edit_distance(input, label, normalized=True, ignored_tokens=None):
     """
-    Edit distance operator computes the edit distances between a batch of
+    EditDistance operator computes the edit distances between a batch of
     hypothesis strings and their references. Edit distance, also called
     Levenshtein distance, measures how dissimilar two strings are by counting
     the minimum number of operations to transform one string into anthor.
@@ -5347,28 +5345,9 @@ def edit_distance(input, label, normalized=True, ignored_tokens=None):
     Examples:
         .. code-block:: python
 
-            import paddle.fluid as fluid
-            x = fluid.layers.data(name='x', shape=[1], dtype='int64')
-            y = fluid.layers.data(name='y', shape=[1], dtype='int64')
-            cost, _ = fluid.layers.edit_distance(input=x, label=y)
-
-            cpu = fluid.core.CPUPlace()
-            exe = fluid.Executor(cpu)
-            exe.run(fluid.default_startup_program())
-
-            import numpy
-            x_ = numpy.random.randint(5, size=(2, 1)).astype('int64')
-            y_ = numpy.random.randint(5, size=(2, 1)).astype('int64')
-
-            print(x_)
-            print(y_)
-
-            x = fluid.create_lod_tensor(x_, [[2]], cpu)
-            y = fluid.create_lod_tensor(y_, [[2]], cpu)
-
-            outs = exe.run(feed={'x':x, 'y':y}, fetch_list=[cost.name])
-
-            print(outs)
+            x = fluid.layers.data(name='x', shape=[1], dtype='float32')
+            y = fluid.layers.data(name='y', shape=[1], dtype='float32')
+            cost = fluid.layers.edit_distance(input=x,label=y)
     """
     helper = LayerHelper("edit_distance", **locals())
 
@@ -5664,39 +5643,39 @@ def nce(input,
         .. code-block:: python
 
 
-	    import numpy as np
+        import numpy as np
 
-	    window_size = 5
-	    words = []
-	    for i in xrange(window_size):
-		words.append(fluid.layers.data(
-		    name='word_{0}'.format(i), shape=[1], dtype='int64'))
+        window_size = 5
+        words = []
+        for i in xrange(window_size):
+        words.append(fluid.layers.data(
+            name='word_{0}'.format(i), shape=[1], dtype='int64'))
 
-	    dict_size = 10000
-	    label_word = int(window_size / 2) + 1
+        dict_size = 10000
+        label_word = int(window_size / 2) + 1
 
-	    embs = []
-	    for i in xrange(window_size):
-		if i == label_word:
-		    continue
+        embs = []
+        for i in xrange(window_size):
+        if i == label_word:
+            continue
 
-		emb = fluid.layers.embedding(input=words[i], size=[dict_size, 32],
-				   param_attr='embed', is_sparse=True)
-		embs.append(emb)
+        emb = fluid.layers.embedding(input=words[i], size=[dict_size, 32],
+                   param_attr='embed', is_sparse=True)
+        embs.append(emb)
 
-	    embs = fluid.layers.concat(input=embs, axis=1)
-	    loss = fluid.layers.nce(input=embs, label=words[label_word],
-		      num_total_classes=dict_size, param_attr='nce.w_0',
-		      bias_attr='nce.b_0')
+        embs = fluid.layers.concat(input=embs, axis=1)
+        loss = fluid.layers.nce(input=embs, label=words[label_word],
+              num_total_classes=dict_size, param_attr='nce.w_0',
+              bias_attr='nce.b_0')
 
-	    #or use custom distribution
-	    dist = np.array([0.05,0.5,0.1,0.3,0.05])
-	    loss = fluid.layers.nce(input=embs, label=words[label_word],
-		      num_total_classes=5, param_attr='nce.w_1',
-		      bias_attr='nce.b_1',
-		      num_neg_samples=3,
-		      sampler="custom_dist",
-		      custom_dist=dist)
+        #or use custom distribution
+        dist = np.array([0.05,0.5,0.1,0.3,0.05])
+        loss = fluid.layers.nce(input=embs, label=words[label_word],
+              num_total_classes=5, param_attr='nce.w_1',
+              bias_attr='nce.b_1',
+              num_neg_samples=3,
+              sampler="custom_dist",
+              custom_dist=dist)
     """
     helper = LayerHelper('nce', **locals())
     assert isinstance(input, Variable)
@@ -7168,7 +7147,7 @@ def pad_constant_like(x, y, pad_value=0., name=None):
                   [[38, 39, 40]],
                   [[41, 42, 43]]]]
             Y.shape = (1, 3, 1, 3)
-		And
+        And
             pad_value = -1,
 
         Return:
@@ -7890,7 +7869,7 @@ def image_resize_short(input, out_short_len, resample='BILINEAR'):
     return image_resize(input=input, out_shape=out_shape, resample=resample)
 
 
-def gather(input, index, overwrite=True):
+def gather(input, index):
     """
     **Gather Layer**
 
@@ -7921,12 +7900,6 @@ def gather(input, index, overwrite=True):
     Args:
         input (Variable): The source input with rank>=1.
         index (Variable): The index input with rank=1.
-        overwrite (bool): The mode that updating the grad when has same index.
-            If True, use the overwrite mode to update the grad of the same index,
-	    if False, use the accumulate mode to update the grad of the same index. 
-	    Default value is True.
-	    
-
 
     Returns:
         output (Variable): The output is a tensor with the same rank as input.
@@ -7946,12 +7919,11 @@ def gather(input, index, overwrite=True):
         type="gather",
         inputs={"X": input,
                 "Index": index},
-        outputs={"Out": out},
-        attrs={'overwrite': overwrite})
+        outputs={"Out": out})
     return out
 
 
-def scatter(input, index, updates, name=None, overwrite=True):
+def scatter(input, index, updates, name=None):
     """
     **Scatter Layer**
 
@@ -7969,10 +7941,6 @@ def scatter(input, index, updates, name=None, overwrite=True):
                           int32 or int64 as it is used as indexes.
         updates (Variable): The updated value of scatter op.
         name (str|None): The output variable name. Default None.
-        overwrite (bool): The mode that updating the output when has same index.
-            If True, use the overwrite mode to update the output of the same index,
-	    if False, use the accumulate mode to update the output of the same index. 
-	    Default value is True.You can set overwrite=False to implement scatter_add.
 
     Returns:
         output (Variable): The output is a tensor with the same shape as input.
@@ -7997,7 +7965,6 @@ def scatter(input, index, updates, name=None, overwrite=True):
         inputs={"X": input,
                 "Ids": index,
                 "Updates": updates},
-        attrs={'overwrite': overwrite},
         outputs={"Out": out})
     return out
 
@@ -8051,7 +8018,7 @@ def sequence_scatter(input, index, updates, name=None):
     Examples:
 
         .. code-block:: python
-	
+    
             import paddle.fluid.layers as layers
 
             input = layers.data( name="x", shape=[3, 6], append_batch_size=False, dtype='float32' )
@@ -8642,38 +8609,38 @@ def pad2d(input,
     Example:
         .. code-block:: text
 
-	      Given that X is a channel of image from input:
+          Given that X is a channel of image from input:
 
-	      X = [[1, 2, 3],
-		   [4, 5, 6]]
+          X = [[1, 2, 3],
+           [4, 5, 6]]
 
-	      Case 0:
+          Case 0:
 
-		paddings = [0, 1, 2, 3],
-		mode = 'constant'
-		pad_value = 0
+        paddings = [0, 1, 2, 3],
+        mode = 'constant'
+        pad_value = 0
 
-		Out = [[0, 0, 1, 2, 3, 0, 0, 0]
-		       [0, 0, 4, 5, 6, 0, 0, 0]
-		       [0, 0, 0, 0, 0, 0, 0, 0]]
+        Out = [[0, 0, 1, 2, 3, 0, 0, 0]
+               [0, 0, 4, 5, 6, 0, 0, 0]
+               [0, 0, 0, 0, 0, 0, 0, 0]]
 
-	      Case 1:
+          Case 1:
 
-		paddings = [0, 1, 2, 1],
-		mode = 'reflect'
+        paddings = [0, 1, 2, 1],
+        mode = 'reflect'
 
-		Out = [[3, 2, 1, 2, 3, 2]
-		       [6, 5, 4, 5, 6, 5]
-		       [3, 2, 1, 2, 3, 2]]
+        Out = [[3, 2, 1, 2, 3, 2]
+               [6, 5, 4, 5, 6, 5]
+               [3, 2, 1, 2, 3, 2]]
 
-	      Case 2:
+          Case 2:
 
-		paddings = [0, 1, 2, 1],
-		mode = 'edge'
+        paddings = [0, 1, 2, 1],
+        mode = 'edge'
 
-		Out = [[1, 1, 1, 2, 3, 3]
-		       [4, 4, 4, 5, 6, 6]
-		       [4, 4, 4, 5, 6, 6]]
+        Out = [[1, 1, 1, 2, 3, 3]
+               [4, 4, 4, 5, 6, 6]
+               [4, 4, 4, 5, 6, 6]]
 
 
     Args:
@@ -9220,7 +9187,7 @@ def sequence_mask(x, maxlen=None, dtype='int64', name=None):
 
     Examples:
         .. code-block:: python
-	
+    
             import paddle.fluid.layers as layers
 
             x = fluid.layers.data(name='x', shape=[10], dtype='float32', lod_level=1)
@@ -10427,7 +10394,7 @@ def space_to_depth(x, blocksize, name=None):
 
     Examples:
         .. code-block:: python
-	
+    
             import paddle.fluid as fluid
             import numpy as np
 
@@ -11087,7 +11054,7 @@ def get_tensor_from_selected_rows(x, name=None):
 
     Examples:
         .. code-block:: python
-	    
+        
             import paddle.fluid as fluid
             b = fluid.default_main_program().global_block()
             input = b.create_var(name="X", dtype="float32", persistable=True, type=fluid.core.VarDesc.VarType.SELECTED_ROWS)
@@ -11597,7 +11564,7 @@ def tree_conv(nodes_vector,
               name=None):
     """ 
     ${comment}
-    		
+            
     Args:
         nodes_vector(${nodes_vector_type}): ${nodes_vector_comment}
         edge_set(${edge_set_type}): ${edge_set_comment}
@@ -12105,234 +12072,9 @@ def deformable_conv(input,
     output = helper.append_bias_op(pre_bias, dim_start=1, dim_end=2)
     return output
 
-
-def unfold(x, kernel_sizes, strides=1, paddings=0, dilations=1, name=None):
-    """
-
-    This function returns a col buffer of sliding local blocks of input x, also known
-    as im2col for batched 2D image tensors. For each block under the convolution filter,
-    all element will be rearranged as a column. While the convolution filter silding over
-    the input feature map, a series of such columns will be formed.
-
-    For each input :math:`X` with shape [N, C, H, W], the output shape [N, Cout, Lout]
-    can be calculated as following.
-
-    .. math::
-
-        dkernel[0] &= dilations[0] \\times (kernel\_sizes[0] - 1) + 1
-
-        dkernel[1] &= dilations[1] \\times (kernel\_sizes[1] - 1) + 1
-
-        hout &= \\frac{H + paddings[0] + paddings[2] - dkernel[0]}{strides[0]} + 1
-
-        wout &= \\frac{W + paddings[1] + paddings[3] - dkernel[1]}{strides[1]} + 1
-
-        Cout &= C \\times kernel\_sizes[0] \\times kernel\_sizes[1]
-
-        Lout &= hout \\times wout
-
-
-    Args:
-        x(Varaible):              The input tensor of format [N, C, H, W].
-        kernel_sizes(int|list):   The size of convolution kernel, should be [k_h, k_w]
-                                  or an integer k treated as [k, k].
-        strides(int|list):        The strides, should be [stride_h, stride_w]
-                                  or an integer stride treated as [sride, stride].
-                                  For default, strides will be [1, 1].
-        paddings(int|list):       The paddings of each dimension, should be
-                                  [padding_top, padding_left, padding_bottom, padding_right]
-                                  or [padding_h, padding_w] or an integer padding.
-                                  If [padding_h, padding_w] was given, it will expanded to
-                                  [padding_h, padding_w, padding_h, padding_w]. If an integer
-                                  padding was given, [padding, padding, padding, padding] will
-                                  be used. For default, paddings will be [0, 0, 0, 0]
-        dilations(int|list):      the dilations of convolution kernel, shold be
-                                  [dilation_h, dilation_w], or an integer dialtion treated as
-                                  [dilation, dilation]. For default, it will be [1, 1].
-
-    
-    Returns:
-        Variable: The tensor variable corresponding to the sliding local blocks. The output shape is [N, Cout, Lout] as decribled above. Cout is the  total number of values within each block, and Lout is the total number of such blocks.
-
-    Examples:
-
-        .. code-block:: python
-
-            import paddle.fluid as fluid
-            x = fluid.layers.data(name = 'data', shape = [3, 224, 224], dtype = 'float32')
-            y = fluid.layers.unfold(x, [3, 3], 1, 1, 1)
-    """
-
-    helper = LayerHelper("unfold", **locals())
-
-    assert len(x.shape) == 4, \
-            "input should be the format of [N, C, H, W]"
-
-    if isinstance(kernel_sizes, int):
-        kernel_sizes = [kernel_sizes, kernel_sizes]
-    else:
-        assert isinstance(kernel_sizes, list) and (len(kernel_sizes) == 2), \
-            "kernel_sizes should either be an integer or a list of two integers"
-
-    if isinstance(strides, int):
-        strides = [strides, strides]
-    else:
-        assert isinstance(strides, list) and (len(strides) == 2), \
-            "strides should either be an integer or a list of two integers"
-
-    if isinstance(dilations, int):
-        dilations = [dilations, dilations]
-    else:
-        assert isinstance(dilations, list) and (len(dilations) == 2), \
-            "dilations should either be an integer or a list of two integers"
-
-    if isinstance(paddings, int):
-        paddings = [paddings] * 4
-    elif isinstance(paddings, list):
-        if len(paddings) == 2:
-            paddings = paddings * 2
-        elif len(paddings) == 4:
-            pass
-        else:
-            raise ValueError(
-                "paddings should either be an integer or a list of 2 or 4 integers"
-            )
-    else:
-        raise ValueError(
-            "Unexpected type of paddings, it should be either an integer or a list"
-            "of 2 or 4 integers")
-
-    out = helper.create_variable_for_type_inference(dtype=x.dtype)
-    helper.append_op(
-        type="unfold",
-        inputs={"X": x},
-        outputs={"Y": out},
-        attrs={
-            "kernel_sizes": kernel_sizes,
-            "strides": strides,
-            "paddings": paddings,
-            "dilations": dilations
-        })
-    return out
-
-
-def deformable_roi_pooling(input,
-                           rois,
-                           trans,
-                           no_trans=False,
-                           spatial_scale=1.0,
-                           group_size=[1, 1],
-                           pooled_height=1,
-                           pooled_width=1,
-                           part_size=None,
-                           sample_per_part=1,
-                           trans_std=0.1,
-                           position_sensitive=False,
-                           name=None):
-    """
-    Deformable PSROI Pooling Layer
-    
-    Args:
-       input (Variable):The input of Deformable PSROIPooling.The shape of input tensor is 
-                        [N,C,H,W]. Where N is batch size,C is number of input channels,H 
-                        is height of the feature, and W is the width of the feature.
-       rois (Variable): ROIs (Regions of Interest) to pool over.It should be
-                        a 2-D LoDTensor of shape (num_rois, 4), the lod level
-                        is 1. Given as [[x1, y1, x2, y2], ...], (x1, y1) is
-                        the top left coordinates, and (x2, y2) is the bottom
-                        right coordinates.
-       trans (Variable): Offset of features on ROIs while pooling.The format is NCHW, where 
-                         N is number of ROIs, C is number of channels, which indicate the offset distance 
-                         in the x and y directions, H is pooled height, and W is pooled width.
-       no_trans (bool): Whether to add offset to get new value or not while roi pooling, which 
-                          value is True or False. Default: False.
-       spatial_scale (float): Ratio of input feature map height (or width) to raw image height (or width).
-                             Equals the reciprocal of total stride in convolutional layers, Default: 1.0.
-       group_size (list|tuple): The number of groups which input channels are divided.(eg.number of input channels 
-                         is k1*k2*(C+1), which k1 and k2 are group width and height and C+1 is number of output
-                         chanels. eg.(4, 6), which 4 is height of group and 6 is width of group. Default: [1, 1].
-       pooled_height (integer): The pooled output height. Default: 1.
-       pooled_width (integer): The pooled output width. Default: 1.
-       part_size (list|tuple): The height and width of offset, eg.(4, 6), which height is 4 and width is 6, Default: 
-                        if None, default value is [pooled_height, pooled_width].
-       sample_per_part (integer): The number of samples in each bin. Default: 1.
-       trans_std (float): Coefficient of offset. Default: 0.1.
-       position_sensitive (bool): Whether to choose deformable psroi pooling mode or not. Default: False.
-       name (str): Name of layer. Default: None.
-    Returns:
-        Variable: The tensor variable storing the deformable psroi pooling \
-                  result.
-
-
-    Examples:
-      .. code-block:: python
-
-        input = fluid.layers.data(name="input",
-                                  shape=[2, 192, 64, 64], 
-                                  dtype='float32', 
-                                  append_batch_size=False)                   
-        rois = fluid.layers.data(name="rois",
-                                 shape=[4],
-                                 dtype='float32', 
-                                 lod_level=1)
-        trans = fluid.layers.data(name="trans",
-                                  shape=[2, 384, 64, 64], 
-                                  dtype='float32', 
-                                  append_batch_size=False) 
-        x = fluid.layers.nn.deformable_roi_pooling(input=input, 
-                                                     rois=rois, 
-                                                     trans=trans, 
-                                                     no_trans=False,
-                                                     spatial_scale=1.0, 
-                                                     group_size=(1, 1),
-                                                     pooled_height=8,
-                                                     pooled_width=8,
-                                                     part_size=(8, 8),
-                                                     sample_per_part=4, 
-                                                     trans_std=0.1,
-                                                     position_sensitive=False)
-    """
-
-    input_channels = input.shape[1]
-    if position_sensitive == False:
-        output_channels = input_channels
-    else:
-        output_channels = input_channels / pooled_height / pooled_width
-
-    if part_size is None:
-        part_height = pooled_height
-        part_width = pooled_width
-        part_size = [part_height, part_width]
-    part_size = utils.convert_to_list(part_size, 2, 'part_size')
-    group_size = utils.convert_to_list(group_size, 2, 'group_size')
-    helper = LayerHelper('deformable_psroi_pooling', **locals())
-    dtype = helper.input_dtype()
-    output = helper.create_variable_for_type_inference(dtype)
-    top_count = helper.create_variable_for_type_inference(dtype='int32')
-    helper.append_op(
-        type="deformable_psroi_pooling",
-        inputs={"Input": input,
-                "ROIs": rois,
-                "Trans": trans},
-        outputs={"Output": output,
-                 "TopCount": top_count},
-        attrs={
-            "no_trans": no_trans,
-            "spatial_scale": spatial_scale,
-            "output_dim": output_channels,
-            "group_size": group_size,
-            "pooled_height": pooled_height,
-            "pooled_width": pooled_width,
-            "part_size": part_size,
-            "sample_per_part": sample_per_part,
-            "trans_std": trans_std
-        })
-    return output
-
-
 def sequence_topk_pooling(input, topk, batch_size, channel_num):
     """
-    
+
     TODO:
     """
     helper = LayerHelper('sequence_topk_pooling', **locals())
@@ -12558,7 +12300,7 @@ def search_grnn(
         is_test=False,
         name=None):
     """
-    
+
     TODO:
     """
 
@@ -12603,7 +12345,7 @@ def search_embedding(
         input,
         num_voc,
         num_emb,
-        lr,   
+        lr,
         param_attr=None,
         name=None,
         dtype='float32'):
@@ -12630,9 +12372,9 @@ def search_embedding(
         inputs={
             'X': input,
             'W': w,
-        },    
+        },
         outputs={"Out": res, },
-        attrs={'num_voc': num_voc, 'num_emb': num_emb, 'lr': lr, } 
+        attrs={'num_voc': num_voc, 'num_emb': num_emb, 'lr': lr, }
     )
 
     return res
@@ -12818,3 +12560,4 @@ def search_seq_softmax(
     )
 
     return out
+

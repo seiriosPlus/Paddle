@@ -160,3 +160,4 @@ REGISTER_OP_CPU_KERNEL(uniform_random,
 REGISTER_OP_CPU_KERNEL(uniform_random_batch_size_like,
                        paddle::operators::CPUUniformRandomKernel<float>,
                        paddle::operators::CPUUniformRandomKernel<double>);
+
