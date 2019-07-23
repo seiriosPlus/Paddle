@@ -94,16 +94,16 @@ void Communicator::SendThread() {
 
   for (auto &iter : send_varname_to_ctx_) {
     std::vector<std::shared_ptr<Variable>> vars;
-    vars.resize(FLAGS_communicator_max_merge_var_num);
+    vars.reserve(FLAGS_communicator_max_merge_var_num);
     unmerged_vars[iter.first] = vars;
   }
 
   auto &first_var_q = send_varname_to_queue_.begin()->second;
-  auto &first_vars = unmerged_vars.first()->second;
+  auto &first_var_v = unmerged_vars.begin()->second;
 
   while (running_) {
     while (first_var_q->Size() > 0 &&
-           first_vars.size() < FLAGS_communicator_max_merge_var_num) {
+           first_var_v.size() < FLAGS_communicator_max_merge_var_num) {
       for (auto &iter : send_varname_to_queue_) {
         auto &var_name = iter.first;
         auto &var_queue = iter.second;
@@ -114,7 +114,7 @@ void Communicator::SendThread() {
       grad_num_.fetch_add(1, std::memory_order_relaxed);
     }
 
-    if (first_vars.size() > 0) {
+    if (first_var_v.size() > 0) {
       std::vector<std::future<void>> task_futures;
       task_futures.reserve(send_varname_to_ctx_.size());
       VLOG(3) << "run merge and send graph";
@@ -143,17 +143,15 @@ void Communicator::SendThread() {
             send_threadpool_->enqueue(std::move(send_task)));
       }
 
-      for (auto &task : task_futures) {
-        task.wait();
-      }
-      if (!FLAGS_communicator_independent_recv_thread) {
+      std::for_each(task_futures.begin(), task_futures.end(),
+                    [](auto &task) { task.wait(); })
+
+          if (!FLAGS_communicator_independent_recv_thread) {
         RecvAll();
       }
 
-      for (auto &iter : unmerged_vars) {
-        auto &vars = iter.second;
-        vars.clear();
-      }
+      std::for_each(unmerged_vars.begin(), unmerged_vars.end(),
+                    [](auto &iter) { iter.second.clear(); });
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       VLOG(3) << "0 vars in send queue, wait";
