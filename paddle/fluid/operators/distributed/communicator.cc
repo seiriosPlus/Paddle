@@ -93,28 +93,28 @@ void Communicator::SendThread() {
       unmerged_vars;
 
   for (auto &iter : send_varname_to_ctx_) {
-    auto &vars = std::vector<std::shared_ptr<Variable>>();
+    std::vector<std::shared_ptr<Variable>> vars;
     vars.resize(FLAGS_communicator_max_merge_var_num);
     unmerged_vars[iter.first] = vars;
   }
 
   auto &first_var_q = send_varname_to_queue_.begin()->second;
-  auto &end_vars = unmerged_vars.end()->second;
+  auto &first_vars = unmerged_vars.first()->second;
 
   while (running_) {
     while (first_var_q->Size() > 0 &&
-           end_vars.size() < FLAGS_communicator_max_merge_var_num) {
+           first_vars.size() < FLAGS_communicator_max_merge_var_num) {
       for (auto &iter : send_varname_to_queue_) {
         auto &var_name = iter.first;
         auto &var_queue = iter.second;
-        auto &var_vec = unmerged_vars[var_name];
+        auto &var_vec = unmerged_vars.at(var_name);
 
         var_vec.push_back(var_queue->Pop());
       }
       grad_num_.fetch_add(1, std::memory_order_relaxed);
     }
 
-    if (end_vars.size() > 0) {
+    if (first_vars.size() > 0) {
       std::vector<std::future<void>> task_futures;
       task_futures.reserve(send_varname_to_ctx_.size());
       VLOG(3) << "run merge and send graph";
