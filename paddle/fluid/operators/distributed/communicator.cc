@@ -88,59 +88,75 @@ Communicator::~Communicator() {
 
 void Communicator::SendThread() {
   VLOG(3) << "SendThread start!";
+
+  std::unordered_map<std::string, std::vector<std::shared_ptr<Variable>>>
+      unmerged_vars;
+
+  for (auto &iter : send_varname_to_ctx_) {
+    auto &vars = std::vector<std::shared_ptr<Variable>>();
+    vars.resize(FLAGS_communicator_max_merge_var_num);
+    unmerged_vars[iter.first] = vars;
+  }
+
+  auto &first_var_q = send_varname_to_queue_.begin()->second;
+  auto &end_vars = unmerged_vars.end()->second;
+
   while (running_) {
-    std::vector<std::future<void>> task_futures;
-    task_futures.reserve(send_varname_to_ctx_.size());
-    VLOG(3) << "run send graph";
-    auto before_run_send_graph = GetCurrentUS();
-    for (auto &iter : send_varname_to_queue_) {
-      auto &var_name = iter.first;
-      auto &var_queue = iter.second;
-      if (var_queue->Size() > 0) {
-        auto send_task = [this, &var_name, &var_queue] {
-          VLOG(3) << var_name << " merge and send";
-          std::vector<std::shared_ptr<Variable>> vars;
-          size_t merged_var_num = 0;
-          while (var_queue->Size() > 0 &&
-                 merged_var_num < FLAGS_communicator_max_merge_var_num) {
-            vars.push_back(var_queue->Pop());
-            // only count the send number of the first var
-            if (var_name == send_varname_to_queue_.begin()->first) {
-              grad_num_.fetch_add(1, std::memory_order_relaxed);
-            }
-            merged_var_num++;
-          }
+    while (first_var_q->Size() > 0 &&
+           end_vars.size() < FLAGS_communicator_max_merge_var_num) {
+      for (auto &iter : send_varname_to_queue_) {
+        auto &var_name = iter.first;
+        auto &var_queue = iter.second;
+        auto &var_vec = unmerged_vars[var_name];
+
+        var_vec.push_back(var_queue->Pop());
+      }
+      grad_num_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    if (end_vars.size() > 0) {
+      std::vector<std::future<void>> task_futures;
+      task_futures.reserve(send_varname_to_ctx_.size());
+      VLOG(3) << "run merge and send graph";
+
+      for (auto &iter : unmerged_vars) {
+        auto &var_name = iter.first;
+        auto &vars = iter.second;
+
+        auto send_task = [this, &var_name, &vars] {
           auto before_merge = GetCurrentUS();
           MergeVars(var_name, vars, send_scope_.get());
           auto after_merge = GetCurrentUS();
-          VLOG(3) << "merge " << var_name << " use time "
-                  << after_merge - before_merge;
+
           auto send_functor = distributed::ParameterSend<float>();
           auto &ctx = send_varname_to_ctx_.at(var_name);
           if (!FLAGS_communicator_fake_rpc) {
             send_functor(ctx, *send_scope_, true);
           }
           auto after_send = GetCurrentUS();
-          VLOG(3) << "send " << var_name << " use time "
+
+          VLOG(3) << var_name << " merge use time "
+                  << after_merge - before_merge << " send use time "
                   << after_send - after_merge;
         };
         task_futures.emplace_back(
             send_threadpool_->enqueue(std::move(send_task)));
-      } else {
-        VLOG(3) << var_name << " queue empty";
       }
-    }
-    for (auto &task_f : task_futures) {
-      task_f.wait();
-    }
-    auto after_run_send_graph = GetCurrentUS();
-    auto send_graph_use_time = after_run_send_graph - before_run_send_graph;
-    if (send_graph_use_time > 100) {
-      VLOG(1) << "run send graph use time "
-              << after_run_send_graph - before_run_send_graph;
-    }
-    if (!FLAGS_communicator_independent_recv_thread) {
-      RecvAll();
+
+      for (auto &task : task_futures) {
+        task.wait();
+      }
+      if (!FLAGS_communicator_independent_recv_thread) {
+        RecvAll();
+      }
+
+      for (auto &iter : unmerged_vars) {
+        auto &vars = iter.second;
+        vars.clear();
+      }
+    } else {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      VLOG(3) << "0 vars in send queue, wait";
     }
   }
 }
