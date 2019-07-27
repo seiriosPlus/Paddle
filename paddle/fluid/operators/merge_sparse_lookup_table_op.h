@@ -42,10 +42,10 @@ class MergeSparseLookupTableKernel : public framework::OpKernel<T> {
       PADDLE_ENFORCE_EQ(in->height(), height,
                         "all input should have the same height");
     }
-    T* out_data = out->mutable_value()->mutable_data<T>({height, width},
+    T* out_data = out->mutable_value()->mutable_data<T>({ids_num, width},
                                                         platform::CPUPlace());
     memset(out_data, 0, sizeof(T) * out->value().numel());
-    out->set_height(height);
+    out->set_height(ids_num);
 
     out->InitDataShards();
 
