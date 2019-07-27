@@ -38,7 +38,7 @@ class MergeSparseLookupTableKernel : public framework::OpKernel<T> {
     height = inputs[0]->height();
     width = inputs[0]->value().dims()[1];
     for (auto& in : inputs) {
-      ids_num += in->GetIdToIndex().size();
+      ids_num += in->rows().size();
       PADDLE_ENFORCE_EQ(in->height(), height,
                         "all input should have the same height");
     }
