@@ -252,8 +252,6 @@ class GRPCClient : public RPCClient {
 
   // mutex for Wait client sync
   std::mutex sync_mutex_;
-  std::condition_variable sync_cond_;
-  std::atomic<int64_t> req_count_{0};
   bool ok_;
 
   // mutex for GetChannel thread safety

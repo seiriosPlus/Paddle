@@ -19,10 +19,10 @@ option cc_generic_services = @cc_generic_services@;
 service SendRecvService {
   rpc SendVariable(VariableMessage) returns (VariableMessage) {}
   rpc GetVariable(VariableMessage) returns (VariableMessage) {}
-  rpc GetVariableNoBarrier(VariableMessage) returns (VariableMessage) {}
   rpc PrefetchVariable(VariableMessage) returns (VariableMessage) {}
 
-  rpc CheckpointNotify(VariableMessage) returns (VariableMessage) {}
+  rpc Barrier(VariableMessage) returns (VariableMessage) {}
+  rpc Notify(VariableMessage) returns (VariableMessage) {}
 
   rpc GetMonomerVariable(VariableMessage) returns (VariableMessage) {}
   rpc GetMonomerBarrier(VariableMessage) returns (VariableMessage) {}

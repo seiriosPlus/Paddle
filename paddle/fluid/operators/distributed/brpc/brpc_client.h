@@ -148,19 +148,12 @@ class BRPCClient : public RPCClient {
                                          ChannelQueuePtr ch_ptr,
                                          ChannelContextPtr ch_ctx,
                                          BRPCClient* cls);
-  void DecreaseReqCount() {
-    if (--req_count_ <= 0) {
-      sync_cond_.notify_all();
-    }
-  }
 
  private:
   std::unordered_map<std::string, ChannelQueuePtr> channels_;
 
   // mutex for Wait client sync
   std::mutex sync_mutex_;
-  std::condition_variable sync_cond_;
-  std::atomic<int64_t> req_count_{0};
 
   static constexpr int brpc_channel_num_per_server_ = 4;
 

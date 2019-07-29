@@ -88,7 +88,6 @@ VarHandlePtr BRPCClient::AsyncSendVar(const std::string& ep,
       var_h->Wait();
     }
   });
-  req_count_++;
 
   return var_h;
 }
@@ -199,8 +198,6 @@ VarHandlePtr BRPCClient::_AsyncGetVar(const std::string& ep,
     }
   });
 
-  req_count_++;
-
   return var_h;
 }
 
@@ -285,7 +282,6 @@ VarHandlePtr BRPCClient::AsyncPrefetchVar(const std::string& ep,
     }
   });
 
-  req_count_++;
   return var_h;
 }
 
@@ -319,23 +315,11 @@ VarHandlePtr BRPCClient::AsyncSendFetchBarrier(const std::string& ep,
 
   ch_ctx->stub->GetVariable(cntl, &req, response, done);
 
-  req_count_++;
-
   if (UNLIKELY(platform::IsProfileEnabled())) {
     var_h->Wait();
   }
 
   return var_h;
-}
-
-bool BRPCClient::Wait() {
-  VLOG(9) << "begin to brpcclient wait";
-  {
-    std::unique_lock<std::mutex> lk(sync_mutex_);
-    sync_cond_.wait(lk, [this] { return req_count_ == 0; });
-  }
-  VLOG(9) << "end to brpcclient wait";
-  return true;
 }
 
 ChannelQueuePtr BRPCClient::GetChannel(const std::string& ep) {
@@ -422,7 +406,6 @@ VarHandlePtr BRPCClient::AsyncSendVarMessage(
   } else {
     ch_ctx->stub->SendVariable(cntl, &req, response, done);
   }
-  req_count_++;
 
   if (UNLIKELY(platform::IsProfileEnabled())) {
     var_h->Wait();

@@ -100,7 +100,6 @@ VarHandlePtr GRPCClient::AsyncSendVar(const std::string& ep,
       h->Wait();
     }
   });
-  req_count_++;
 
   return h;
 }
@@ -202,8 +201,6 @@ VarHandlePtr GRPCClient::_AsyncGetVar(
     }
   });
 
-  req_count_++;
-
   return h;
 }
 
@@ -254,7 +251,6 @@ VarHandlePtr GRPCClient::AsyncPrefetchVar(const std::string& ep,
     }
   });
 
-  req_count_++;
   return h;
 }
 
@@ -270,12 +266,12 @@ VarHandlePtr GRPCClient::AsyncSendBatchBarrier(const std::string& ep,
 
   sendrecv::VariableMessage req;
   req.set_varname(BATCH_BARRIER_MESSAGE);
+  req.set_trainer_id(trainer_id_);
 
   platform::RecordRPCEvent record_event(method);
 
-  auto rpc = s->stub_->AsyncSendVariable(s->context_.get(), req, &cq_);
+  auto rpc = s->stub_->Barrier(s->context_.get(), req, &cq_);
   rpc->Finish(&s->reply_, &s->status_, reinterpret_cast<void*>(s));
-  req_count_++;
 
   if (UNLIKELY(platform::IsProfileEnabled())) {
     h->Wait();
@@ -298,9 +294,8 @@ VarHandlePtr GRPCClient::AsyncSendFetchBarrier(const std::string& ep,
 
   platform::RecordRPCEvent record_event(method);
 
-  auto rpc = s->stub_->AsyncGetVariable(s->context_.get(), req, &cq_);
+  auto rpc = s->stub_->Barrier(s->context_.get(), req, &cq_);
   rpc->Finish(&s->reply_, &s->status_, reinterpret_cast<void*>(s));
-  req_count_++;
 
   if (UNLIKELY(platform::IsProfileEnabled())) {
     h->Wait();
@@ -327,7 +322,6 @@ VarHandlePtr GRPCClient::AsyncGetMonomerBarrier(const std::string& ep,
 
   auto rpc = s->stub_->AsyncGetMonomerBarrier(s->context_.get(), req, &cq_);
   rpc->Finish(&s->reply_, &s->status_, reinterpret_cast<void*>(s));
-  req_count_++;
 
   if (UNLIKELY(platform::IsProfileEnabled())) {
     h->Wait();
@@ -352,7 +346,6 @@ VarHandlePtr GRPCClient::AsyncSendComplete(const std::string& ep,
 
   auto rpc = s->stub_->AsyncSendVariable(s->context_.get(), req, &cq_);
   rpc->Finish(&s->reply_, &s->status_, reinterpret_cast<void*>(s));
-  req_count_++;
 
   if (UNLIKELY(platform::IsProfileEnabled())) {
     h->Wait();
@@ -382,19 +375,12 @@ VarHandlePtr GRPCClient::AsyncCheckpointNotify(const std::string& ep,
 
   auto rpc = s->stub_->AsyncCheckpointNotify(s->context_.get(), req, &cq_);
   rpc->Finish(&s->reply_, &s->status_, reinterpret_cast<void*>(s));
-  req_count_++;
 
   if (UNLIKELY(platform::IsProfileEnabled())) {
     h->Wait();
   }
 
   return h;
-}
-
-bool GRPCClient::Wait() {
-  std::unique_lock<std::mutex> lk(sync_mutex_);
-  sync_cond_.wait(lk, [this] { return (req_count_ == 0 || ok_ == false); });
-  return ok_;
 }
 
 void GRPCClient::Proceed() {
@@ -429,18 +415,7 @@ void GRPCClient::Proceed() {
       c->Finish(false);
     }
 
-    bool notify = false;
-    {
-      std::lock_guard<std::mutex> lk(sync_mutex_);
-      req_count_--;
-      notify = (req_count_ <= 0 || !c->status_.ok());
-    }
-
     delete c;
-
-    if (notify) {
-      sync_cond_.notify_all();
-    }
   }
 
   // Last log message
