@@ -192,12 +192,6 @@ class GRPCClient : public RPCClient {
                            const std::string& table_name = "",
                            int64_t time_out = FLAGS_rpc_deadline) override;
 
-  VarHandlePtr AsyncGetVarNoBarrier(
-      const std::string& ep, const platform::DeviceContext& ctx,
-      const framework::Scope& scope, const std::string& var_name,
-      const std::string& out_varname,
-      int64_t time_out = FLAGS_rpc_deadline) override;
-
   VarHandlePtr AsyncGetMonomerVariable(
       const std::string& ep, const platform::DeviceContext& ctx,
       const framework::Scope& scope, const std::string& var_name,

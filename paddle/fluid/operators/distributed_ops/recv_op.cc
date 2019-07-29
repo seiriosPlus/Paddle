@@ -64,32 +64,16 @@ class RecvOp : public framework::OperatorBase {
                                              trainer_id);
       recv_functor(rpc_ctx, scope);
     } else {
-      if (with_barrier) {
-        std::vector<distributed::VarHandlePtr> rets;
-        for (size_t i = 0; i < outs.size(); i++) {
-          std::string varname = varnames.size() == 0 ? outs[i] : varnames[i];
-          VLOG(4) << "recv " << outs[i] << " from " << epmap[i] << " with "
-                  << varname << " and with AsyncGetVar";
-          rets.push_back(
-              rpc_client->AsyncGetVar(epmap[i], ctx, scope, varname, outs[i]));
-        }
-        if (sync_mode) {
-          for (size_t i = 0; i < rets.size(); i++) {
-            PADDLE_ENFORCE(rets[i]->Wait(), "internal error in RPCClient");
-          }
-        }
-      } else {
-        std::vector<distributed::VarHandlePtr> rets;
-        for (size_t i = 0; i < outs.size(); i++) {
-          std::string varname = varnames.size() == 0 ? outs[i] : varnames[i];
-          VLOG(4) << "recv " << outs[i] << " from " << epmap[i] << " with "
-                  << varname << " and with AsyncGetVarNoBarrier";
-          rets.push_back(rpc_client->AsyncGetVarNoBarrier(epmap[i], ctx, scope,
-                                                          varname, outs[i]));
-        }
-        for (size_t i = 0; i < rets.size(); i++) {
-          PADDLE_ENFORCE(rets[i]->Wait(), "internal error in RPCClient");
-        }
+      std::vector<distributed::VarHandlePtr> rets;
+      for (size_t i = 0; i < outs.size(); i++) {
+        std::string varname = varnames.size() == 0 ? outs[i] : varnames[i];
+        VLOG(4) << "recv " << outs[i] << " from " << epmap[i] << " with "
+                << varname << " and with AsyncGetVar";
+        rets.push_back(
+            rpc_client->AsyncGetVar(epmap[i], ctx, scope, varname, outs[i]));
+      }
+      for (size_t i = 0; i < rets.size(); i++) {
+        PADDLE_ENFORCE(rets[i]->Wait(), "internal error in RPCClient");
       }
     }
   }
@@ -118,7 +102,7 @@ This operator can get variables from server side.
         .SetDefault(0);
     AddAttr<bool>("with_barrier",
                   "(bool, default True) if with_barrier=False, will use "
-                  "AsyncGetVarNoBarrier get variable from pserver immediately")
+                  "AsyncGetVar get variable from pserver immediately")
         .SetDefault(true);
     AddAttr<std::vector<std::string>>(
         "varnames",

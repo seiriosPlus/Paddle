@@ -575,7 +575,7 @@ class DistributeTranspiler(object):
                         self.grad_name_to_param_name[grad_varname],
                         splited_grad_varname
                     ],
-                    "sync_mode": not self.sync_mode,
+                    "sync_mode": True,
                 })
             for _, var in enumerate(splited_vars):
                 send_vars.append(var)
@@ -595,7 +595,6 @@ class DistributeTranspiler(object):
                 outputs={"Out": send_barrier_out},
                 attrs={
                     "endpoints": pserver_endpoints,
-                    "sync_mode": self.sync_mode,
                     "trainer_id": self.trainer_id,
                     RPC_OP_ROLE_ATTR_NAME: RPC_OP_ROLE_ATTR_VALUE
                 })
@@ -667,23 +666,11 @@ class DistributeTranspiler(object):
                         "epmap": eps,
                         "recv_varnames": recv_varnames,
                         "trainer_id": self.trainer_id,
+                        "sync_mode": True,
                         RPC_OP_ROLE_ATTR_NAME: RPC_OP_ROLE_ATTR_VALUE,
                         OP_ROLE_VAR_ATTR_NAME:
-                        [param_varname, recv_op_role_var_name],
-                        "sync_mode": not self.sync_mode
+                        [param_varname, recv_op_role_var_name]
                     })
-
-        if self.sync_mode:
-            # form a WAW dependency
-            program.global_block().append_op(
-                type="fetch_barrier",
-                inputs={},
-                outputs={"Out": all_recv_outputs},
-                attrs={
-                    "endpoints": pserver_endpoints,
-                    "trainer_id": self.trainer_id,
-                    RPC_OP_ROLE_ATTR_NAME: RPC_OP_ROLE_ATTR_VALUE
-                })
 
         for param_varname, splited_var in six.iteritems(self.param_var_mapping):
             if len(splited_var) <= 1:
@@ -805,20 +792,9 @@ class DistributeTranspiler(object):
                 attrs={
                     "epmap": eps,
                     "trainer_id": self.trainer_id,
+                    "sync_mode": True,
                     RPC_OP_ROLE_ATTR_NAME: RPC_OP_ROLE_ATTR_VALUE
                 })
-
-        fetch_barrier_out = startup_program.global_block().create_var(
-            name=framework.generate_control_dev_var_name())
-        startup_program.global_block().append_op(
-            type="fetch_barrier",
-            inputs={},
-            outputs={"Out": fetch_barrier_out},
-            attrs={
-                "endpoints": self.pserver_endpoints,
-                "trainer_id": self.trainer_id,
-                RPC_OP_ROLE_ATTR_NAME: RPC_OP_ROLE_ATTR_VALUE
-            })
 
         for varname, splited_var in six.iteritems(self.param_var_mapping):
             # add concat ops to merge splited parameters received from parameter servers.

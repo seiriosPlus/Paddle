@@ -134,18 +134,6 @@ VarHandlePtr GRPCClient::AsyncGetVar(const std::string& ep,
                       time_out);
 }
 
-VarHandlePtr GRPCClient::AsyncGetVarNoBarrier(
-    const std::string& ep, const platform::DeviceContext& ctx,
-    const framework::Scope& scope, const std::string& var_name,
-    const std::string& out_varname, int64_t time_out) {
-  std::string var_name_no_barrier =
-      string::Sprintf("%s%s", var_name, WITHOUT_BARRIER_MESSAGE);
-
-  return _AsyncGetVar(
-      ep, ctx, scope, kGetNoBarrierRPC, var_name_no_barrier, out_varname,
-      "/sendrecv.SendRecvService/GetVariableNoBarrier", "", time_out);
-}
-
 VarHandlePtr GRPCClient::AsyncGetMonomerVariable(
     const std::string& ep, const platform::DeviceContext& ctx,
     const framework::Scope& scope, const std::string& var_name,
@@ -313,8 +301,6 @@ VarHandlePtr GRPCClient::AsyncGetMonomerBarrier(const std::string& ep,
   VarHandlePtr h(new VarHandle(ep, method, var_name, nullptr, nullptr));
   s->Prepare(h, time_out);
 
-  VLOG(30) << s->GetVarHandlePtr()->String() << " begin";
-
   sendrecv::VariableMessage req;
   req.set_varname(var_name);
 
@@ -373,7 +359,7 @@ VarHandlePtr GRPCClient::AsyncCheckpointNotify(const std::string& ep,
 
   platform::RecordRPCEvent record_event(method);
 
-  auto rpc = s->stub_->AsyncCheckpointNotify(s->context_.get(), req, &cq_);
+  auto rpc = s->stub_->Notify(s->context_.get(), req, &cq_);
   rpc->Finish(&s->reply_, &s->status_, reinterpret_cast<void*>(s));
 
   if (UNLIKELY(platform::IsProfileEnabled())) {

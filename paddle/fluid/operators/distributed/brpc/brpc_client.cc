@@ -201,17 +201,6 @@ VarHandlePtr BRPCClient::_AsyncGetVar(const std::string& ep,
   return var_h;
 }
 
-VarHandlePtr BRPCClient::AsyncGetVarNoBarrier(
-    const std::string& ep, const platform::DeviceContext& ctx,
-    const framework::Scope& scope, const std::string& var_name,
-    const std::string& out_var_name, int64_t time_out) {
-  std::string var_name_no_barrier =
-      string::Sprintf("%s%s", var_name, WITHOUT_BARRIER_MESSAGE);
-
-  return _AsyncGetVar(ep, ctx, scope, var_name_no_barrier, out_var_name,
-                      kGetNoBarrierRPC, time_out);
-}
-
 VarHandlePtr BRPCClient::AsyncGetMonomerVariable(
     const std::string& ep, const platform::DeviceContext& ctx,
     const framework::Scope& scope, const std::string& var_name,
