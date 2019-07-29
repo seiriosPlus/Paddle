@@ -336,21 +336,19 @@ void ListenAndServOp::RunImpl(const framework::Scope &scope,
 
   // ----------------------------------------------------------------------
   // Prepare request handlers
+
   if (sync_mode) {
-    send_handler_.reset(new distributed::SendHandlerSync());
-    get_handler_.reset(new distributed::GetHandlerSync());
+    VLOG(1) << "continue";
   } else {
-    send_handler_.reset(new distributed::SendHandlerAsync());
-    if (dc_asgd) {
-      get_handler_.reset(new distributed::GetHandlerDCAsync());
-    } else {
-      get_handler_.reset(new distributed::GetHandlerAsync());
-    }
+    VLOG(1) << "continue";
   }
+
+  send_handler_.reset(new distributed::SendHandlerAsync());
+  get_handler_.reset(new distributed::GetHandlerAsync());
   prefetch_handler_.reset(new distributed::PrefetchHandler());
-  checkpoint_handler_.reset(new distributed::CheckpointHandler());
-  get_no_barrier_handler_.reset(new distributed::GetNoBarrierHandler());
-  static_cast<distributed::CheckpointHandler *>(checkpoint_handler_.get())
+  notify_handler_.reset(new distributed::CheckpointHandler());
+
+  static_cast<distributed::CheckpointHandler *>(notify_handler_.get())
       ->SetId(checkpoint_block_id);
 
   rpc_service_->RegisterRPC(distributed::RequestType::SEND, send_handler_.get(),
@@ -361,9 +359,8 @@ void ListenAndServOp::RunImpl(const framework::Scope &scope,
                             prefetch_handler_.get(),
                             FLAGS_rpc_prefetch_thread_num);
   rpc_service_->RegisterRPC(distributed::RequestType::CHECKPOINT,
-                            checkpoint_handler_.get());
-  rpc_service_->RegisterRPC(distributed::RequestType::RECV_NO_BARRIER,
-                            get_no_barrier_handler_.get());
+                            notify_handler_.get());
+
   // ----------------------------------------------------------------------
   // Set handler contexts
   auto optimize_blocks =
@@ -379,8 +376,8 @@ void ListenAndServOp::RunImpl(const framework::Scope &scope,
   f(send_handler_.get());
   f(get_handler_.get());
   f(prefetch_handler_.get());
-  f(checkpoint_handler_.get());
-  f(get_no_barrier_handler_.get());
+  f(notify_handler_.get());
+
   // ----------------------------------------------------------------------
   // Prepare checkpoint block to handler
   std::shared_ptr<framework::ExecutorPrepareContext> ckpt_pre_context = nullptr;
@@ -388,8 +385,9 @@ void ListenAndServOp::RunImpl(const framework::Scope &scope,
     auto ctx = executor.Prepare(*program, checkpoint_block_id);
     ckpt_pre_context = std::move(ctx);
   }
-  static_cast<distributed::CheckpointHandler *>(checkpoint_handler_.get())
+  static_cast<distributed::CheckpointHandler *>(notify_handler_.get())
       ->SetCheckpointNotifyPreparedCtx(ckpt_pre_context);
+
   // ----------------------------------------------------------------------
   // Prepare prefetch block to handler
   std::vector<int> prefetch_block_id_list;
