@@ -45,17 +45,19 @@ class RecvOp : public framework::OperatorBase {
         distributed::RPCClient::GetInstance<RPCCLIENT_T>(
             Attr<int>("trainer_id"));
 
-    std::vector<distributed::VarHandlePtr> rets;
-    for (size_t i = 0; i < outs.size(); i++) {
-      VLOG(3) << "getting " << outs[i] << " from " << epmap[i];
-      rets.push_back(rpc_client->AsyncGetVar(epmap[i], ctx, scope, outs[i]));
-    }
-    if (sync_mode) {
-      for (size_t i = 0; i < rets.size(); i++) {
-        PADDLE_ENFORCE(rets[i]->Wait(), "internal error in RPCClient");
+      std::vector<distributed::VarHandlePtr> rets;
+      for (size_t i = 0; i < outs.size(); i++) {
+          std::string varname = varnames.size() == 0 ? outs[i] : varnames[i];
+          VLOG(4) << "recv " << outs[i] << " from " << epmap[i] << " with "
+                  << varname << " and with AsyncGetVar";
+          rets.push_back(
+                  rpc_client->AsyncGetVar(epmap[i], ctx, scope, varname, outs[i]));
       }
-    }
-  }
+      for (size_t i = 0; i < rets.size(); i++) {
+          VLOG(7) << "before sync_recv " << ins[i] << "from " << epmap[i];
+          PADDLE_ENFORCE(rets[i]->Wait(), "internal error in RPCClient");
+          VLOG(7) << "after sync_recv " << ins[i] << "from " << epmap[i];
+      }
 };
 
 class RecvOpMaker : public framework::OpProtoAndCheckerMaker {
