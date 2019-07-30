@@ -110,114 +110,10 @@ static int64_t GetTimestamp() {
   return tp.tv_sec * 1000 + tp.tv_usec / 1000;
 }
 
-void ListenAndServOp::RunSyncLoop(
-    framework::Executor *executor, framework::ProgramDesc *program,
-    framework::Scope *recv_scope, platform::DeviceContext *dev_ctx,
-    const std::vector<int> &prefetch_block_id_list,
-    const int checkpoint_point_block_id) const {
-  VLOG(4) << "RunSyncLoop";
-  size_t num_blocks = program->Size();
-  auto optimize_blocks =
-      Attr<std::vector<framework::BlockDesc *>>(kOptimizeBlocks);
-  PADDLE_ENFORCE_GE(num_blocks, 2,
-                    "server program should have at least 2 blocks");
-
-  // Prepare all the server block
-  std::vector<int> optimize_blocks_list;
-  for (size_t i = 1; i < program->Size(); ++i) {
-    optimize_blocks_list.push_back(i);
-  }
-  auto optimize_prepared = executor->Prepare(*program, optimize_blocks_list);
-  // Insert placeholder for block0 which holds current op itself,
-  // NOTE the first block in `optimize_prepared` should never be ran.
-  optimize_prepared.insert(
-      optimize_prepared.begin(),
-      std::shared_ptr<framework::ExecutorPrepareContext>(nullptr));
-
-  rpc_service_->SetState(distributed::RPCServerState::STATE_RECV);
-  rpc_service_->RecvBarrier()->Wait();
-  rpc_service_->ResetAllBarriers();
-
-  while (true) {
-    rpc_service_->SetState(distributed::RPCServerState::STATE_SEND);
-    rpc_service_->SendBarrier()->Wait();
-
-    if (rpc_service_->IsExit()) {
-      LOG(WARNING) << "get exit!rpc_processor break!";
-      rpc_service_->SetState(distributed::RPCServerState::STATE_RECV);
-      break;
-    }
-    // The optimize blocks which have the same parent ID would run parallel
-    // TODO(Yancey1989): need to use ParallelExecutor for future
-    int32_t last_parent_blkid = optimize_blocks[0]->Parent();
-    std::vector<size_t> parallel_blkids;
-    parallel_blkids.push_back(optimize_blocks[0]->ID());
-    double ts = GetTimestamp();
-    for (size_t i = 1; i < optimize_blocks.size(); ++i) {
-      // skip the first optimize block because it is already in the
-      // parallel_blkids.
-      int blkid = optimize_blocks[i]->ID();
-      if (program->Block(blkid).Parent() != last_parent_blkid) {
-        ParallelExecuteBlocks(parallel_blkids, executor, optimize_prepared,
-                              program, recv_scope);
-        parallel_blkids.clear();
-        last_parent_blkid = program->Block(blkid).Parent();
-      }
-      parallel_blkids.push_back(blkid);
-    }
-    ParallelExecuteBlocks(parallel_blkids, executor, optimize_prepared, program,
-                          recv_scope);
-    VLOG(4) << "run all blocks spent " << GetTimestamp() - ts << "(ms)";
-
-    VLOG(3) << "ResetReceivedVars";
-    ResetReceivedVars(recv_scope, dev_ctx, rpc_service_->NeedResetAllVars());
-
-    rpc_service_->SetState(distributed::RPCServerState::STATE_RECV);
-    rpc_service_->RecvBarrier()->Wait();
-    rpc_service_->ResetAllBarriers();
-  }  // while(true)
-}
-
-void ListenAndServOp::ResetReceivedVars(framework::Scope *recv_scope,
-                                        platform::DeviceContext *dev_ctx,
-                                        bool reset_all) const {
-  for (auto &varname : sparse_vars_) {
-    auto var = recv_scope->FindVar(varname);
-    if (var == nullptr) {
-      VLOG(2) << "can not find var " << varname << " in received scope";
-      continue;
-    }
-    if (var->IsType<framework::SelectedRows>()) {
-      VLOG(3) << "reset sparse var: " << varname;
-      var->GetMutable<framework::SelectedRows>()->mutable_rows()->clear();
-    } else {
-      PADDLE_THROW("The type of sparse var should be SelectedRows");
-    }
-  }
-  if (UNLIKELY(reset_all)) {
-    for (auto &varname : dense_vars_) {
-      auto var = recv_scope->FindVar(varname);
-      if (var == nullptr) {
-        VLOG(2) << "can not find var " << varname << " in received scope";
-        continue;
-      }
-      if (var->IsType<framework::LoDTensor>()) {
-        math::set_constant(*dev_ctx, var->GetMutable<framework::LoDTensor>(),
-                           static_cast<float>(0));
-      } else if (var->IsType<framework::Tensor>()) {
-        math::set_constant(*dev_ctx, var->GetMutable<framework::Tensor>(),
-                           static_cast<float>(0));
-      } else {
-        PADDLE_THROW("The type of dense var should be in [LoDTensor, Tensor]");
-      }
-    }
-  }
-}
-
-void ListenAndServOp::RunAsyncLoop(framework::Executor *executor,
-                                   framework::ProgramDesc *program,
-                                   framework::Scope *recv_scope) const {
-  VLOG(4) << "RunAsyncLoop";
+void ListenAndServOp::RunOptimizeLoop(framework::Executor *executor,
+                                      framework::ProgramDesc *program,
+                                      framework::Scope *recv_scope) const {
+  VLOG(4) << "RunOptimizeLoop for async and sync";
   auto grad_to_block_id_str =
       Attr<std::vector<std::string>>("grad_to_block_id");
   DoubleFindMap<std::string, int32_t> grad_to_block_id;
@@ -268,15 +164,6 @@ void ListenAndServOp::RunAsyncLoop(framework::Executor *executor,
   send_handler_->SetGradToPreparedCtx(&grad_to_prepared_ctx);
   get_handler_->SetGradToPreparedCtx(&grad_to_prepared_ctx);
   prefetch_handler_->SetGradToPreparedCtx(&grad_to_prepared_ctx);
-
-  while (true) {
-    if (rpc_service_->IsExit()) {
-      VLOG(4) << "get exit! rpc_processor break!";
-      break;
-    }
-
-    sleep(1);
-  }  // while(true)
 }
 
 static void FillRequestCtx(distributed::RequestHandler *h,
@@ -437,12 +324,16 @@ void ListenAndServOp::RunImpl(const framework::Scope &scope,
 
   // Write to a file of server selected port for python use.
   SavePort();
-  if (sync_mode) {
-    RunSyncLoop(&executor, program, &recv_scope, &dev_ctx,
-                prefetch_block_id_list, checkpoint_block_id);
-  } else {
-    RunAsyncLoop(&executor, program, &recv_scope);
-  }
+
+  RunOptimizeLoop(&executor, program, &recv_scope);
+
+  while (true) {
+    if (rpc_service_->IsExit()) {
+      VLOG(4) << "get exit! rpc_processor break!";
+      break;
+    }
+    sleep(1);
+  }  // while(true)
 }
 
 class ListenAndServOpMaker : public framework::OpProtoAndCheckerMaker {

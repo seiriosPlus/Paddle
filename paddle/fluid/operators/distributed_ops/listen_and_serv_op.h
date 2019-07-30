@@ -60,16 +60,9 @@ class ListenAndServOp : public framework::OperatorBase {
                   const framework::AttributeMap& attrs);
   virtual ~ListenAndServOp();
 
-  void RunSyncLoop(framework::Executor* executor,
-                   framework::ProgramDesc* program,
-                   framework::Scope* recv_scope,
-                   platform::DeviceContext* dev_ctx,
-                   const std::vector<int>& prefetch_block_id_list,
-                   const int checkpoint_point_block_id) const;
-
-  void RunAsyncLoop(framework::Executor* executor,
-                    framework::ProgramDesc* program,
-                    framework::Scope* recv_scope) const;
+  void RunOptimizeLoop(framework::Executor* executor,
+                       framework::ProgramDesc* program,
+                       framework::Scope* recv_scope) const;
 
   void SavePort() const;
 
