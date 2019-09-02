@@ -90,18 +90,29 @@ inline void debug_tensor(const framework::Scope& scope,
     }
     ss << "\n";
 
+    std::stringstream ssd;
+    int cnt = 0;
+
     for (int idx = 0; idx < cpu_rows.size(); idx++) {
-      ss << cpu_rows[idx] << " ";
+      ssd << cpu_rows[idx] << " ";
 
       std::stringstream ss_t;
       for (int x = 0; x < row_n; x++) {
-        ss_t << slr.value().data<T>()[idx * row_n + x] << " ";
+        ss_t << grad.value().data<T>()[idx * row_n + x] << " ";
       }
-      ss << ss_t.str() << "\n";
+      ssd << ss_t.str() << "\n";
+
+      cnt++;
+
+      if (cnt % 100 == 0) {
+        VLOG(1) << ss.str();
+        ssd.clear();
+      }
     }
 
-    ss << "\n";
-    VLOG(1) << ss.str();
+    ssd << "\n";
+    VLOG(1) << ssd.str();
+
   } else {
     PADDLE_THROW("unsupported var type to send!");
   }
