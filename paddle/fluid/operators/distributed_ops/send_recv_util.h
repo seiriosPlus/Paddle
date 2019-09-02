@@ -98,14 +98,14 @@ inline void debug_tensor(const framework::Scope& scope,
 
       std::stringstream ss_t;
       for (int x = 0; x < row_n; x++) {
-        ss_t << grad.value().data<T>()[idx * row_n + x] << " ";
+        ss_t << slr.value().data<T>()[idx * row_n + x] << " ";
       }
       ssd << ss_t.str() << "\n";
 
       cnt++;
 
       if (cnt % 100 == 0) {
-        VLOG(1) << ss.str();
+        VLOG(1) << ssd.str();
         ssd.clear();
       }
     }

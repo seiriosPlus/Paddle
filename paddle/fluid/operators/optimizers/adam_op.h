@@ -458,7 +458,7 @@ class AdamOpKernel : public framework::OpKernel<T> {
         cnt++;
 
         if (cnt % 100 == 0) {
-          VLOG(1) << ss.str();
+          VLOG(1) << ssd.str();
           ssd.clear();
         }
       }
