@@ -90,14 +90,16 @@ inline void debug_tensor(const framework::Scope& scope,
     }
     ss << "\n";
 
-    for (auto& cpu_row : cpu_rows) {
-      ss << cpu_row << " ";
+    for (int idx = 0; idx < cpu_rows.size(); idx++) {
+      ss << cpu_rows[idx] << " ";
+
       std::stringstream ss_t;
       for (int x = 0; x < row_n; x++) {
-        ss_t << slr.value().data<T>()[cpu_row * row_n + x] << " ";
+        ss_t << slr.value().data<T>()[idx * row_n + x] << " ";
       }
       ss << ss_t.str() << "\n";
     }
+
     ss << "\n";
     VLOG(1) << ss.str();
   } else {

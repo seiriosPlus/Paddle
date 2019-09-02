@@ -435,18 +435,19 @@ class AdamOpKernel : public framework::OpKernel<T> {
       std::stringstream ss;
       ss << "\n"
          << " ADAM UPDATE "
-         << "\n";
+         << " ROWS=" << row_n << " \n";
 
       for (auto& row : cpu_rows) {
         ss << row << " ";
       }
       ss << "\n";
 
-      for (auto& cpu_row : cpu_rows) {
-        ss << cpu_row << " ";
+      for (int idx = 0; idx < cpu_rows.size(); idx++) {
+        ss << cpu_rows[idx] << " ";
+
         std::stringstream ss_t;
         for (int x = 0; x < row_n; x++) {
-          ss_t << grad.value().data<T>()[cpu_row * row_n + x] << " ";
+          ss_t << grad.value().data<T>()[idx * row_n + x] << " ";
         }
         ss << ss_t.str() << "\n";
       }
