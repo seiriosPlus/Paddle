@@ -433,6 +433,13 @@ class AdamOpKernel : public framework::OpKernel<T> {
       auto row_n = grad.value().numel() / grad.rows().size();
 
       std::stringstream ss;
+      ss << "\n"
+         << " ADAM UPDATE "
+         << "\n";
+
+      for (auto& row : cpu_rows) {
+        ss << row << " ";
+      }
       ss << "\n";
 
       for (auto& cpu_row : cpu_rows) {

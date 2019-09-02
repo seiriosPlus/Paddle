@@ -85,6 +85,11 @@ inline void debug_tensor(const framework::Scope& scope,
     std::stringstream ss;
     ss << "\n" << var_name << ":\n";
 
+    for (auto& row : cpu_rows) {
+      ss << row << " ";
+    }
+    ss << "\n";
+
     for (auto& cpu_row : cpu_rows) {
       ss << cpu_row << " ";
       std::stringstream ss_t;
