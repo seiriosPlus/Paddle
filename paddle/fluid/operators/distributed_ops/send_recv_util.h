@@ -70,8 +70,8 @@ inline size_t GetSectionIndex(int64_t id,
 }
 
 template <typename T>
-inline void debug_tensor(const framework::Scope& scope,
-                         const std::string& var_name) {
+inline void DebugTensor(const framework::Scope& scope,
+                        const std::string& var_name) {
   auto* var = scope.FindVar(var_name);
 
   if (var->IsType<framework::LoDTensor>()) {
@@ -91,6 +91,7 @@ inline void debug_tensor(const framework::Scope& scope,
     ss << "\n";
 
     std::stringstream ssd;
+    ssd << "\n";
     int cnt = 0;
 
     for (int idx = 0; idx < cpu_rows.size(); idx++) {

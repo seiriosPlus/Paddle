@@ -153,7 +153,7 @@ void ParameterSend<T>::operator()(const RpcContext &rpc_ctx,
     auto &endpoint = rpc_ctx.epmap[i];
     if (NeedSend(*local_scope.get(), send_var_name)) {
       if (rpc_ctx.var_name == "SparseFeatFactors@GRAD") {
-        debug_tensor<T>(*local_scope.get(), send_var_name);
+        DebugTensor<T>(*local_scope.get(), send_var_name);
       }
 
       VLOG(3) << "sending " << send_var_name << " to " << endpoint;
