@@ -429,6 +429,24 @@ class AdamOpKernel : public framework::OpKernel<T> {
       }
 
       std::vector<int64_t> cpu_rows(grad.rows().begin(), grad.rows().end());
+
+      auto row_n = grad.value().numel() / grad.rows().size();
+
+      std::stringstream ss;
+      ss << "\n";
+
+      for (auto& cpu_row : cpu_rows) {
+        ss << cpu_row << " ";
+        std::stringstream ss_t;
+        for (int x = 0; x < row_n; x++) {
+          ss_t << grad.value().data<T>()[cpu_row * row_n + x] << " ";
+        }
+        ss << ss_t.str() << "\n";
+      }
+
+      ss << "\n";
+      VLOG(1) << ss.str();
+
       bool is_strict_sorted = true;
       for (size_t i = 1; i < cpu_rows.size(); ++i) {
         if (cpu_rows[i - 1] >= cpu_rows[i]) {

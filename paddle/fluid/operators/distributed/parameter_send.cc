@@ -152,6 +152,10 @@ void ParameterSend<T>::operator()(const RpcContext &rpc_ctx,
     auto &send_var_name = rpc_ctx.splited_var_names[i];
     auto &endpoint = rpc_ctx.epmap[i];
     if (NeedSend(*local_scope.get(), send_var_name)) {
+      if (rpc_ctx.var_name == "SparseFeatFactors@GRAD") {
+        debug_tensor<T>(*local_scope.get(), send_var_name);
+      }
+
       VLOG(3) << "sending " << send_var_name << " to " << endpoint;
       rets.push_back(rpc_client->AsyncSendVar(
           endpoint, cpu_ctx, *local_scope.get(), send_var_name));

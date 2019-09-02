@@ -69,5 +69,36 @@ inline size_t GetSectionIndex(int64_t id,
   return abs_sections.size() - 1;
 }
 
+template <typename T>
+inline void debug_tensor(const framework::Scope& scope,
+                         const std::string& var_name) {
+  auto* var = scope.FindVar(var_name);
+
+  if (var->IsType<framework::LoDTensor>()) {
+    return;
+  } else if (var->IsType<framework::SelectedRows>()) {
+    auto& slr = var->Get<framework::SelectedRows>();
+
+    std::vector<int64_t> cpu_rows(slr.rows().begin(), slr.rows().end());
+    auto row_n = slr.value().numel() / slr.rows().size();
+
+    std::stringstream ss;
+    ss << "\n" << var_name << ":\n";
+
+    for (auto& cpu_row : cpu_rows) {
+      ss << cpu_row << " ";
+      std::stringstream ss_t;
+      for (int x = 0; x < row_n; x++) {
+        ss_t << slr.value().data<T>()[cpu_row * row_n + x] << " ";
+      }
+      ss << ss_t.str() << "\n";
+    }
+    ss << "\n";
+    VLOG(1) << ss.str();
+  } else {
+    PADDLE_THROW("unsupported var type to send!");
+  }
+}
+
 }  // namespace operators
 }  // namespace paddle
