@@ -184,6 +184,7 @@ def __bootstrap__():
 
         # env for communicator
         read_env_flags.append('communicator_independent_recv_thread')
+        read_env_flags.append('communicator_send_sparse_rpc_pieces')
         read_env_flags.append('communicator_send_queue_size')
         read_env_flags.append('communicator_min_send_grad_num_before_recv')
         read_env_flags.append('communicator_thread_pool_size')

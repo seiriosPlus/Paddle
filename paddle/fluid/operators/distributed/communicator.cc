@@ -43,6 +43,7 @@ DEFINE_bool(communicator_merge_sparse_grad, true,
             "merge sparse gradient before sending");
 DEFINE_int32(communicator_merge_sparse_bucket, 2000,
              "number of threads for sparse var");
+DEFINE_int32(communicator_send_sparse_rpc_pieces, 2,"number of threads for send sparse parameter for each endpoint");
 
 namespace paddle {
 namespace operators {
@@ -183,7 +184,7 @@ void Communicator::SendThread() {
             auto &ctx = send_varname_to_ctx_.at(var_name);
             // delta parameter is in delta scope
             if (!FLAGS_communicator_fake_rpc) {
-              send_functor(ctx, *delta_scope_.get(), true, 2);
+              send_functor(ctx, *delta_scope_.get(), true, FLAGS_communicator_send_sparse_rpc_pieces);
             }
             auto after_send = GetCurrentUS();
             VLOG(1) << "send " << var_name << " use time "
@@ -477,8 +478,8 @@ Communicator::Communicator(const RpcCtxMap &send_varname_to_ctx,
           << FLAGS_communicator_merge_sparse_grad;
   VLOG(0) << "Trainer nums: " << trainer_nums_;
   VLOG(0) << "geo_sgd_push_before_local_train_nums: " << geo_need_push_nums_;
-  VLOG(0) << "communicator_merge_sparse_bucket"
-          << FLAGS_communicator_merge_sparse_bucket;
+  VLOG(0) << "communicator_merge_sparse_bucket: " << FLAGS_communicator_merge_sparse_bucket;
+  VLOG(0) << "communicator_send_sparse_rpc_pieces: " << FLAGS_communicator_send_sparse_rpc_pieces;
 
   if (send_varname_to_ctx.size() == 0) {
     VLOG(0) << "nothing need to be send, will not start send_thread";

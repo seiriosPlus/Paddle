@@ -34,6 +34,13 @@ namespace paddle {
 namespace operators {
 namespace distributed {
 
+inline double GetCurrentUS() {
+  struct timeval time;
+  gettimeofday(&time, NULL);
+  return 1e+6 * time.tv_sec + time.tv_usec;
+}
+
+
 using LoDTensor = framework::LoDTensor;
 using LoDTensor = framework::LoDTensor;
 using SelectedRows = framework::SelectedRows;
@@ -73,8 +80,7 @@ inline EP_SPLIT_TABLE_PAIRS GetMultiFieldRpcContext(
   return table_pairs;
 }  // namespace distributed
 
-
-template<typename T>
+template <typename T>
 inline std::string to_string(const std::vector<T> &vec) {
   std::stringstream ss;
   for (const auto &c : vec) {
@@ -144,7 +150,17 @@ void ParameterSend<T>::operator()(const RpcContext &rpc_ctx,
       }
     }
 
+    VLOG(4) << "Prepare to send var " << rpc_ctx.var_name;
+    if (sync) {
+      for (auto &handle : rets) {
+        VLOG(4) << "Wait send var to pserver handle: " << handle;
+        PADDLE_ENFORCE(handle->Wait(), "internal error in RPCClient");
+      }
+    }
   } else if (send_var->IsType<framework::SelectedRows>()) {
+
+    auto before_merge_training = GetCurrentUS();
+
     auto &send_slr = send_var->Get<framework::SelectedRows>();
     auto abs_sections = ToAbsoluteSection(rpc_ctx.height_sections);
 
@@ -153,17 +169,6 @@ void ParameterSend<T>::operator()(const RpcContext &rpc_ctx,
     std::vector<std::vector<size_t>> outs_dense_idx;
 
     auto table_pairs = GetMultiFieldRpcContext(rpc_ctx, scope, multi_parts);
-
-    std::stringstream ss;
-
-    ss << "varname: " << rpc_ctx.var_name << " size: " << table_pairs.size() << " ";
-
-    for (size_t i = 0; i < table_pairs.size(); i++) {
-      ss << "ep: " << table_pairs[i].first << " tabname: " << table_pairs[i].second << "  ";
-    }
-
-    VLOG(1) << ss.str();
-
 
     outs_rows_idx.resize(table_pairs.size());
     outs_dense_idx.resize(table_pairs.size());
@@ -223,6 +228,8 @@ void ParameterSend<T>::operator()(const RpcContext &rpc_ctx,
       }
     }
 
+    auto before_run_training = GetCurrentUS();
+
     for (size_t i = 0; i < table_pairs.size(); i++) {
       auto &send_var_name = table_pairs[i].second;
       auto &endpoint = table_pairs[i].first;
@@ -233,40 +240,26 @@ void ParameterSend<T>::operator()(const RpcContext &rpc_ctx,
               << "need send: " << need_send;
 
       if (need_send) {
-
-        auto* var = local_scope->FindVar(send_var_name);
-
-        auto rows = to_string<int64_t>(var->Get<framework::SelectedRows>().rows());
-        auto &value = var->Get<framework::SelectedRows>().value();
-        auto *z_value = value.data<float>();
-
-        std::stringstream ss;
-        ss << "\n";
-        for(int x=0; x< value.numel(); x++) {
-          ss << z_value[x] << " ";
-        }
-
-        VLOG(4) << "sending " << send_var_name << " to " << endpoint << " with " <<
-                " rows: " << rows << " values: " << ss.str();
-
         rets.push_back(rpc_client->AsyncSendVar(
             endpoint, cpu_ctx, *local_scope.get(), send_var_name));
-        VLOG(4) << "send var " << send_var_name << " async handle done";
       } else {
         VLOG(4) << "don't send non-initialized variable: "
                 << rpc_ctx.splited_var_names[i];
       }
     }
+
+    if (sync) {
+      for (auto &handle : rets) {
+        VLOG(4) << "Wait send var to pserver handle: " << handle;
+        PADDLE_ENFORCE(handle->Wait(), "internal error in RPCClient");
+      }
+    }
+
+    auto after_run_training = GetCurrentUS();
+    VLOG(1) << "parameter_send " << rpc_ctx.var_name << " send prepare: " << before_run_training - before_merge_training  <<", rpc use time: " << after_run_training - before_run_training;
+
   } else {
     PADDLE_THROW("unsupported var type to send!");
-  }
-
-  VLOG(4) << "Prepare to send var " << rpc_ctx.var_name;
-  if (sync) {
-    for (auto &handle : rets) {
-      VLOG(4) << "Wait send var to pserver handle: " << handle;
-      PADDLE_ENFORCE(handle->Wait(), "internal error in RPCClient");
-    }
   }
 }
 
