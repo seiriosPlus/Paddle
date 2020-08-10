@@ -103,14 +103,10 @@ void prefetch_core(
     const framework::ExecutionContext &context, const framework::Scope &scope,
     const bool is_distributed,
     std::unordered_map<int64_t, std::vector<float>> *recved_vec_map) {
-  distributed::RPCClient *rpc_client =
-      distributed::RPCClient::GetInstance<RPCCLIENT_T>(
-          context.Attr<int>("trainer_id"));
-
   int pservers = context.Attr<int>("pserver_num");
 
   platform::DeviceContextPool &pool = platform::DeviceContextPool::Instance();
-  auto &actual_ctx = *pool.Get(context.GetPlace());
+  auto &actual_ctx = *pool.Get(platform::CPUPlace());
 
   std::unique_ptr<framework::Scope> local_scope = scope.NewTmpScope();
 
@@ -128,9 +124,26 @@ void prefetch_core(
                                     &split_ids, &origin_ids);
 
   // create output var in local scope
-  for (auto &name : out_var_names) {
-    local_scope->Var(name)->GetMutable<framework::LoDTensor>();
+  auto embedding_name = context.InputNames("W").front();
+  framework::Variable *embedding_var = scope.FindVar(embedding_name);
+  auto embedding_var_dim_1 =
+      embedding_var->Get<framework::LoDTensor>().dims()[1];
+
+  for (size_t i = 0; i < out_var_names.size(); ++i) {
+    auto *out_var_tensor =
+        local_scope->Var(out_var_names[i])->GetMutable<framework::LoDTensor>();
+    auto &ids = split_ids[i];
+    if (!ids.empty()) {
+      out_var_tensor->mutable_data<float>(
+          framework::make_ddim({static_cast<int64_t>(ids.size()),
+                                static_cast<int64_t>(embedding_var_dim_1)}),
+          platform::CPUPlace());
+    }
   }
+
+  distributed::RPCClient *rpc_client =
+      distributed::RPCClient::GetInstance<RPCCLIENT_T>(
+          context.Attr<int>("trainer_id"));
 
   std::vector<distributed::VarHandlePtr> rets;
   for (size_t i = 0; i < in_var_names.size(); i++) {
@@ -213,18 +226,13 @@ void prefetchs(const std::vector<std::string> &id_var_names,
   const auto place =
       scope.FindVar(id_var_names[0])->Get<framework::LoDTensor>().place();
 
-  if (!platform::is_cpu_place(place)) {
-    PADDLE_THROW("multi prefetch only support CPU currently");
-  }
-
   std::vector<int64_t> ids_union;
   TableAndEndpoints tables;
 
   for (auto &id_name : id_var_names) {
     auto *in_var = scope.FindVar(id_name);
     auto &id_tensor = in_var->Get<framework::LoDTensor>();
-    std::copy_n(id_tensor.data<int64_t>(), id_tensor.numel(),
-                back_inserter(ids_union));
+    TensorToVector(id_tensor, context.device_context(), &ids_union);
   }
 
   std::unordered_set<int64_t> s(ids_union.begin(), ids_union.end());
@@ -270,12 +278,30 @@ void prefetchs(const std::vector<std::string> &id_var_names,
     auto *out_d = out_t->mutable_data<float>(place);
 
     for (auto idx = 0; idx < static_cast<int>(ids_size); idx++) {
-      const auto &id = id_data[idx];
-      if (padding_idx != distributed::kNoPadding && id == padding_idx) {
-        memset(out_d + idx * vec_dim_1, 0, sizeof(float) * vec_dim_1);
+      const auto &id = ids[idx];
+      if (platform::is_cpu_place(out_t->place())) {
+        if (padding_idx != distributed::kNoPadding && id == padding_idx) {
+          memset(out_d + idx * vec_dim_1, 0, sizeof(float) * vec_dim_1);
+        } else {
+          std::copy_n(recved_vec_map[id].begin(), vec_dim_1,
+                      out_d + idx * vec_dim_1);
+        }
       } else {
-        std::copy_n(recved_vec_map[id].begin(), vec_dim_1,
-                    out_d + idx * vec_dim_1);
+        auto stream = context.cuda_device_context().stream();
+        if (padding_idx != distributed::kNoPadding && id == padding_idx) {
+          platform::GpuMemsetAsync(out_d + idx * vec_dim_1, 0,
+                                   sizeof(float) * vec_dim_1, stream);
+
+        } else {
+          auto &cpu_place =
+              BOOST_GET_CONST(platform::CPUPlace,
+                              paddle::platform::CPUDeviceContext().GetPlace());
+          auto &gpu_place =
+              BOOST_GET_CONST(platform::CUDAPlace, out_t->place());
+          memory::Copy(gpu_place, out_d + idx * vec_dim_1, cpu_place,
+                       &recved_vec_map[id][0], sizeof(float) * vec_dim_1,
+                       stream);
+        }
       }
     }
   }

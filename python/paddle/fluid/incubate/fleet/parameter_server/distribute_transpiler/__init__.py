@@ -28,6 +28,7 @@ from paddle.fluid.compiler import CompiledProgram
 from paddle.fluid.executor import Executor
 from paddle.fluid.parallel_executor import ParallelExecutor
 from paddle.fluid.optimizer import Optimizer
+from paddle.fluid import layers, device_guard
 
 from paddle.fluid.transpiler.distribute_transpiler import DistributeTranspilerConfig
 
@@ -477,33 +478,34 @@ class FleetTranspiler(Fleet):
         prog = Program()
         block = prog.global_block()
         local_vars = []
+        with device_guard("cpu"):
+            for name, var_ctx in context.items():
+                if len(var_ctx.origin_varnames()) != 1:
+                    raise ValueError("Dense can not support split now.")
 
-        for name, var_ctx in context.items():
-            if len(var_ctx.origin_varnames()) != 1:
-                raise ValueError("Dense can not support split now.")
+                varname = var_ctx.origin_varnames()[0]
+                local_vars.append(varname)
 
-            varname = var_ctx.origin_varnames()[0]
-            local_vars.append(varname)
+                optimizer = self._get_optimizer_op(varname)
+                reshaped_varnames, origin_varnames = self._get_optimizer_status(
+                    optimizer.type, varname)
 
-            optimizer = self._get_optimizer_op(varname)
-            reshaped_varnames, origin_varnames = self._get_optimizer_status(
-                optimizer.type, varname)
-
-            for var_name in [varname] + reshaped_varnames + origin_varnames:
-                var = self._origin_main_program.global_block().vars[var_name]
-                block.append_op(
-                    type='recv_save',
-                    attrs={
-                        "trainer_id": self._role_maker.worker_index(),
-                        "shape": var.shape,
-                        "slice_shapes":
-                        [",".join([str(i) for i in var.shape])],
-                        "slice_varnames": [var.name],
-                        "remote_varnames": [var.name],
-                        "is_sparse": False,
-                        "endpoints": var_ctx.split_endpoints(),
-                        "file_path": os.path.join(dirname, var.name)
-                    })
+                for var_name in [varname] + reshaped_varnames + origin_varnames:
+                    var = self._origin_main_program.global_block().vars[
+                        var_name]
+                    block.append_op(
+                        type='recv_save',
+                        attrs={
+                            "trainer_id": self._role_maker.worker_index(),
+                            "shape": var.shape,
+                            "slice_shapes":
+                            [",".join([str(i) for i in var.shape])],
+                            "slice_varnames": [var.name],
+                            "remote_varnames": [var.name],
+                            "is_sparse": False,
+                            "endpoints": var_ctx.split_endpoints(),
+                            "file_path": os.path.join(dirname, var.name)
+                        })
 
         executor.run(prog)
         return local_vars
