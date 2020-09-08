@@ -415,6 +415,8 @@ struct MergeAverage<platform::CPUDeviceContext, T> {
     auto input_height = has_value_input->height();
     framework::SelectedRows& out = *output;
     std::set<int64_t> merged_row_set;
+    std::unordered_map<int64_t, size_t> id_counts;
+
     size_t row_num = 0;
     for (auto* input : inputs) {
       if (input->rows().size() == 0) {
@@ -427,6 +429,9 @@ struct MergeAverage<platform::CPUDeviceContext, T> {
                         "all input should have same height");
       row_num += input->rows().size();
       merged_row_set.insert(input->rows().begin(), input->rows().end());
+
+      std::for_each(input->rows().begin(), input->rows().end(),
+                    [&id_counts](int64_t v) { ++id_counts[v]; });
     }
 
     out.set_height(input_height);
@@ -466,8 +471,12 @@ struct MergeAverage<platform::CPUDeviceContext, T> {
       }
     }
     size_t input_width_cast = static_cast<size_t>(input_width);
-    T count = static_cast<T>(inputs.size());
+
     for (size_t i = 0; i < merge_rows.size(); i++) {
+      auto count = id_counts[merge_rows[i]];
+      if (count == 1) {
+        continue;
+      }
       for (size_t j = 0; j < input_width_cast; j++) {
         out_data[i * input_width + j] = out_data[i * input_width + j] / count;
       }

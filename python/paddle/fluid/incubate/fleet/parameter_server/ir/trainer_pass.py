@@ -169,7 +169,7 @@ def append_send_ops_pass(program, config):
     trainer_id = config.get_role_id()
     pserver_endpoints = config.get_ps_endpoints()
 
-    def _append_send_op(union_vars, queue):
+    def _append_send_op(union_vars, queue, scale=None):
 
         if queue == STEP_COUNTER:
             send_input_vars = []
@@ -183,6 +183,13 @@ def append_send_ops_pass(program, config):
         if mode in [DistributedMode.SYNC, DistributedMode.HALF_ASYNC]:
             dummy_output = program.global_block().create_var(
                 name=framework.generate_control_dev_var_name())
+
+        if scale is not None:
+            program.global_block().append_op(
+                type="scale",
+                inputs={"X": send_input_vars[0],
+                        "ScaleTensor": scale},
+                outputs={"Out": send_input_vars[0]}, )
 
         program.global_block().append_op(
             type="send",
@@ -213,9 +220,17 @@ def append_send_ops_pass(program, config):
     dummys = []
 
     sends = config.get_trainer_send_context()
+    gradient_scale_var = program.global_block().vars.get(
+        "sparse_gradient_scale", None)
 
     for merged_name, send in sends.items():
-        dummys.append(_append_send_op(send.origin_varnames(), merged_name))
+        if send.is_sparse:
+            dummys.append(
+                _append_send_op(send.origin_varnames(), merged_name,
+                                gradient_scale_var))
+        else:
+            dummys.append(
+                _append_send_op(send.origin_varnames(), merged_name, None))
 
     if mode in [DistributedMode.SYNC, DistributedMode.HALF_ASYNC]:
         _append_barrier_op(dummys)

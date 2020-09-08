@@ -259,7 +259,7 @@ class CompileTimeStrategy(object):
             origin_varnames = [vars.name]
 
         trainer_id = self.get_role_id()
-        aggregate = True
+        aggregate = False if is_sparse else True
         ctx = CommContext(name, names, eps, sections, origin_varnames,
                           trainer_id, aggregate, is_sparse, is_distributed)
         return ctx
