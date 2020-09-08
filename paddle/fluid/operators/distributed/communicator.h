@@ -201,7 +201,7 @@ class Communicator {
 
   virtual void Send(const std::vector<std::string> &var_names,
                     const std::vector<std::string> &var_tables,
-                    const framework::Scope &scope) = 0;
+                    const framework::Scope &scope, const float scale) = 0;
 
   virtual void RecvNoBarrier() {}
 
@@ -287,7 +287,7 @@ class AsyncCommunicator : public Communicator {
 
   void Send(const std::vector<std::string> &var_names,
             const std::vector<std::string> &var_tables,
-            const framework::Scope &scope) override;
+            const framework::Scope &scope, const float scale) override;
 
   virtual void SendByCommunicator(int batches);
 
@@ -423,7 +423,7 @@ class GeoCommunicator : public AsyncCommunicator {
 
   void Send(const std::vector<std::string> &var_names,
             const std::vector<std::string> &var_tables,
-            const framework::Scope &scope) override;
+            const framework::Scope &scope, const float scale) override;
 
   void SendByCommunicator(int batches) override;
 

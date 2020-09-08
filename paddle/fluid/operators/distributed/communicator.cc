@@ -260,7 +260,7 @@ void AsyncCommunicator::Stop() {
 
 void AsyncCommunicator::Send(const std::vector<std::string> &var_names,
                              const std::vector<std::string> &var_tables,
-                             const framework::Scope &scope) {
+                             const framework::Scope &scope, const float scale) {
   waiting_ = false;
 
   PADDLE_ENFORCE_EQ(
@@ -283,6 +283,9 @@ void AsyncCommunicator::Send(const std::vector<std::string> &var_names,
                       platform::errors::InvalidArgument(
                           "var_names.size() >= 1 is permitted"));
 
+    auto cpu_ctx = paddle::platform::CPUDeviceContext();
+    auto blas = math::GetBlas<platform::CPUDeviceContext, float>(cpu_ctx);
+
     auto *var = scope.FindVar(var_names[0]);
 
     PADDLE_ENFORCE_EQ(
@@ -294,6 +297,9 @@ void AsyncCommunicator::Send(const std::vector<std::string> &var_names,
       framework::CopyVariable(*var, tmp_var.get());
       VLOG(3) << "send to " << table_name << " with queue size "
               << queue->Size();
+
+      auto *t = tmp_var->GetMutable<framework::SelectedRows>();
+      blas.SCAL(t->value().numel(), scale, t->value().data<float>());
       queue->Push(tmp_var);
     } else if (var->IsType<framework::LoDTensor>()) {
       // push var into send queue by var_name
@@ -454,7 +460,7 @@ void GeoCommunicator::InitImpl(const RpcCtxMap &send_varname_to_ctx,
 
 void GeoCommunicator::Send(const std::vector<std::string> &var_names,
                            const std::vector<std::string> &var_tables,
-                           const framework::Scope &scope) {
+                           const framework::Scope &scope, const float scale) {
   waiting_ = false;
 
   PADDLE_ENFORCE_EQ(

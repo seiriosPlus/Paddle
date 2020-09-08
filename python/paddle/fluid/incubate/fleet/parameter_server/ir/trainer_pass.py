@@ -169,7 +169,8 @@ def append_send_ops_pass(program, config):
     trainer_id = config.get_role_id()
     pserver_endpoints = config.get_ps_endpoints()
 
-    def _append_send_op(union_vars, queue, scale=None):
+    def _append_send_op(union_vars, queue, scale_varname=None):
+        scale = []
 
         if queue == STEP_COUNTER:
             send_input_vars = []
@@ -179,21 +180,19 @@ def append_send_ops_pass(program, config):
                 for union_var in union_vars
             ]
 
+        if scale_varname:
+            scale_var = [program.global_block().vars[scale_varname]]
+            scale.append(scale_var)
+
         dummy_output = []
         if mode in [DistributedMode.SYNC, DistributedMode.HALF_ASYNC]:
             dummy_output = program.global_block().create_var(
                 name=framework.generate_control_dev_var_name())
 
-        if scale is not None:
-            program.global_block().append_op(
-                type="scale",
-                inputs={"X": send_input_vars[0],
-                        "ScaleTensor": scale},
-                outputs={"Out": send_input_vars[0]}, )
-
         program.global_block().append_op(
             type="send",
-            inputs={"X": send_input_vars},
+            inputs={"X": send_input_vars,
+                    "Scale": scale},
             outputs={"Out": dummy_output},
             attrs={
                 "send_varnames": [queue],
@@ -217,17 +216,23 @@ def append_send_ops_pass(program, config):
                 RPC_OP_ROLE_ATTR_NAME: RPC_OP_ROLE_ATTR_VALUE
             })
 
+    def _get_sparse_input_var(sparse_varname):
+        origin_program = config.get_origin_main_program()
+        for op in origin_program.global_block().ops:
+            if op.type in SPARSE_OP_TYPE_DICT.keys():
+                if op.input("W")[0] == sparse_varname:
+                    return op.input("Ids")[0]
+        raise ValueError("can not find input for {}, something wrong.")
+
     dummys = []
 
     sends = config.get_trainer_send_context()
-    gradient_scale_var = program.global_block().vars.get(
-        "sparse_gradient_scale", None)
 
     for merged_name, send in sends.items():
         if send.is_sparse:
+            ids_name = _get_sparse_input_var(merged_name)
             dummys.append(
-                _append_send_op(send.origin_varnames(), merged_name,
-                                gradient_scale_var))
+                _append_send_op(send.origin_varnames(), merged_name, ids_name))
         else:
             dummys.append(
                 _append_send_op(send.origin_varnames(), merged_name, None))

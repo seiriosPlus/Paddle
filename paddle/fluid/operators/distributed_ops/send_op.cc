@@ -39,6 +39,14 @@ class SendOp : public framework::OperatorBase {
   void RunImpl(const framework::Scope& scope,
                const platform::Place& place) const override {
     auto ins = Inputs("X");
+    auto scales = Inputs("Scale");
+
+    float scale = 1.0;
+
+    if (scales.size() == 1) {
+      auto* var = scope.FindVar(scales[0]);
+      scale = static_cast<float>(var->Get<framework::LoDTensor>().dims()[0]);
+    }
 
     auto epmap = Attr<std::vector<std::string>>("endpoints");
     auto trainer_id = Attr<int>("trainer_id");
@@ -97,6 +105,9 @@ class SendOpMaker : public framework::OpProtoAndCheckerMaker {
   void Make() {
     AddInput("X", "(Tensor, SelectedRows) Input variables to be sent")
         .AsDuplicable();
+    AddInput("Scale", "(Tensor) Scale variables to scale gradient")
+        .AsDispensable();
+
     AddOutput("Out", "(Any) Dummy outputs, used for control dependency")
         .AsDuplicable();
     AddComment(R"DOC(
