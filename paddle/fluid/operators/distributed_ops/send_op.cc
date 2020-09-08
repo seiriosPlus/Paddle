@@ -56,7 +56,8 @@ class SendOp : public framework::OperatorBase {
     auto use_send_handler = Attr<bool>("use_send_handler");
 
     if (send_varnames.size() > 0) {
-      distributed::Communicator::GetInstance()->Send(ins, send_varnames, scope);
+      distributed::Communicator::GetInstance()->Send(ins, send_varnames, scope,
+                                                     scale);
     } else {
       platform::DeviceContextPool& pool =
           platform::DeviceContextPool::Instance();

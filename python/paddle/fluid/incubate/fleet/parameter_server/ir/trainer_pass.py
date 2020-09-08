@@ -170,7 +170,6 @@ def append_send_ops_pass(program, config):
     pserver_endpoints = config.get_ps_endpoints()
 
     def _append_send_op(union_vars, queue, scale_varname=None):
-        scale = []
 
         if queue == STEP_COUNTER:
             send_input_vars = []
@@ -181,8 +180,10 @@ def append_send_ops_pass(program, config):
             ]
 
         if scale_varname:
-            scale_var = [program.global_block().vars[scale_varname]]
-            scale.append(scale_var)
+            scale_var = program.global_block().vars[scale_varname]
+            scale = [scale_var]
+        else:
+            scale = []
 
         dummy_output = []
         if mode in [DistributedMode.SYNC, DistributedMode.HALF_ASYNC]:
@@ -229,8 +230,9 @@ def append_send_ops_pass(program, config):
     sends = config.get_trainer_send_context()
 
     for merged_name, send in sends.items():
-        if send.is_sparse:
-            ids_name = _get_sparse_input_var(merged_name)
+        if send.is_sparse():
+            param_name = config.grad_name_to_param_name[merged_name]
+            ids_name = _get_sparse_input_var(param_name)
             dummys.append(
                 _append_send_op(send.origin_varnames(), merged_name, ids_name))
         else:

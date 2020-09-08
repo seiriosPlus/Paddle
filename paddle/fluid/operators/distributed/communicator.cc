@@ -299,7 +299,7 @@ void AsyncCommunicator::Send(const std::vector<std::string> &var_names,
               << queue->Size();
 
       auto *t = tmp_var->GetMutable<framework::SelectedRows>();
-      blas.SCAL(t->value().numel(), scale, t->value().data<float>());
+      blas.SCAL(t->value().numel(), scale, t->mutable_value()->data<float>());
       queue->Push(tmp_var);
     } else if (var->IsType<framework::LoDTensor>()) {
       // push var into send queue by var_name
