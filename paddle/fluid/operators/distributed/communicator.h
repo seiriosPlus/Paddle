@@ -20,6 +20,7 @@ limitations under the License. */
 #include <deque>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -30,6 +31,7 @@ limitations under the License. */
 #include "gflags/gflags.h"
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/variable.h"
+#include "paddle/fluid/framework/variable_helper.h"
 #include "paddle/fluid/operators/distributed/communicator_common.h"
 #include "paddle/fluid/operators/distributed/distributed.h"
 #include "paddle/fluid/operators/distributed/large_scale_kv.h"
@@ -284,6 +286,8 @@ class AsyncCommunicator : public Communicator {
 
   virtual void MainThread();
 
+  void InitParams();
+
   void Send(const std::vector<std::string> &var_names,
             const std::vector<std::string> &var_tables,
             const framework::Scope &scope) override;
@@ -296,7 +300,7 @@ class AsyncCommunicator : public Communicator {
 
   virtual void RecvNoBarrier();
 
-  virtual int Meet();
+  virtual int BatchesCounter();
 
   virtual void BarrierSend() {}
 
@@ -353,7 +357,7 @@ class HalfAsyncCommunicator : public AsyncCommunicator {
 
   void BarrierTriggerReset(int initial_val) override;
 
-  int Meet();
+  int BatchesCounter();
 
   void BarrierWeakUp();
 
@@ -439,7 +443,7 @@ class GeoCommunicator : public AsyncCommunicator {
 
   void RecvDense(const std::string &varname);
 
-  void Init();
+  void InitParams();
 
   void InitSparse();
 
