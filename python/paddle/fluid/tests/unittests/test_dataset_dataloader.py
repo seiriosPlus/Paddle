@@ -97,11 +97,9 @@ class DatasetLoaderTestBase(unittest.TestCase):
 
     def check_batch_number(self, place, randomize_batch_num=False):
         main_prog, startup_prog, feeds = self.build_network()
-        if self.dataset_name == "QueueDataset":
-            dataset = paddle.distributed.QueueDataset()
-        else:
-            dataset = paddle.distributed.InMemoryDataset()
-        dataset._set_batch_size(BATCH_SIZE)
+        dataset = paddle.distributed.fleet.DatasetFactory().create_dataset(
+            self.dataset_name)
+        dataset.set_batch_size(BATCH_SIZE)
 
         if isinstance(place, fluid.CPUPlace):
             file_num = 10
@@ -130,8 +128,8 @@ class DatasetLoaderTestBase(unittest.TestCase):
                 fake_reader(batch_num=BATCH_NUM + random_delta_batch_size[i]))
 
         dataset.set_filelist(filelist)
-        dataset._set_use_var(feeds)
-        dataset._set_pipe_command("cat")
+        dataset.set_use_var(feeds)
+        dataset.set_pipe_command("cat")
         if self.dataset_name == 'InMemoryDataset':
             dataset.load_into_memory()
 
