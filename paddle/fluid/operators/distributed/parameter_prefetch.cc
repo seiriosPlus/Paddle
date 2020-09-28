@@ -12,18 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <algorithm>
+#include "paddle/fluid/operators/distributed/parameter_prefetch.h"
 #include <memory>
 #include <set>
-#include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
-
-#include "paddle/fluid/operators/distributed/parameter_prefetch.h"
-
 #include "paddle/fluid/framework/lod_tensor.h"
-#include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/selected_rows.h"
 #include "paddle/fluid/framework/tensor.h"
 #include "paddle/fluid/operators/distributed/distributed.h"
@@ -33,8 +27,17 @@
 #include "paddle/fluid/platform/profiler.h"
 
 namespace paddle {
+namespace framework {
+class ExecutionContext;
+class Scope;
+}  // namespace framework
+}  // namespace paddle
+
+namespace paddle {
 namespace operators {
 namespace distributed {
+
+class RPCClient;
 
 using LoDTensor = framework::LoDTensor;
 using LoDTensor = framework::LoDTensor;
