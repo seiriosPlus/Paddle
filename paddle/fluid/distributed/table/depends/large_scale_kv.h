@@ -96,14 +96,14 @@ struct VALUE {
 class ValueBlock {
  public:
   explicit ValueBlock(
-      const std::vector<std::string> &varnames, const std::vector<int> &dims,
+      const CommonAccessorParameter &common,
       std::unordered_map<std::string, Initializer *> *initializers) {
     initializers_ = initializers;
-    int size = static_cast<int>(varnames.size());
+    int size = static_cast<int>(common.params().size());
 
     for (int x = 0; x < size; ++x) {
-      auto varname = varnames[x];
-      auto dim = dims[x];
+      auto varname = common.params()[x];
+      auto dim = common.dims()[x];
       value_names_.push_back(varname);
       value_dims_.push_back(dim);
       places[varname] = x;
