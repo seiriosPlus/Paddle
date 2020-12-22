@@ -123,7 +123,7 @@ class ValueBlock {
             std::bind(entry<std::string>, std::placeholders::_1, "none");
       } else {
         has_entry = true;
-        auto slices = distributed::split_string<std::string>(entry_attr, "&");
+        auto slices = string::split_string<std::string>(entry_attr, "&");
         if (slices[0] == "count_filter") {
           int threshold = std::stoi(slices[1]);
           entry_func_ = std::bind(entry<int>, std::placeholders::_1, threshold);
