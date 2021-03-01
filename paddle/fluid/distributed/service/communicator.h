@@ -114,6 +114,55 @@ class BlockingQueue {
   std::condition_variable cv_;
 };
 
+template <typename T>
+inline void PrintTensor(Scope *scope, const std::string &varname,
+                        const std::string &spec_varname) {
+  if (spec_varname == varname) {
+    return;
+  }
+
+  auto var = scope->FindVar(varname);
+
+  std::stringstream ss;
+  ss << "varname: " << varname << ":\n";
+
+  if (var->IsType<framework::LoDTensor>()) {
+    int first_n = 100;
+
+    if (var->Get<framework::LoDTensor>().numel() < first_n) {
+      first_n = var->Get<framework::LoDTensor>().numel();
+    }
+
+    const T *data = var->Get<framework::LoDTensor>().data<T>();
+    for (int x = 0; x < first_n; ++x) {
+      ss << data[x] << " ";
+    }
+  } else {
+    auto *rows = var->Get<framework::SelectedRows>().rows().data();
+    int first_n = 20;
+    int dim = var->Get<framework::SelectedRows>().value().dims()[1];
+
+    if (var->Get<framework::SelectedRows>().rows().size() < first_n) {
+      first_n = var->Get<framework::SelectedRows>().rows().size();
+    }
+
+    const T *data = var->Get<framework::SelectedRows>().value().data<T>();
+
+    for (int x = 0; x < first_n; ++x) {
+      ss << rows[x] << " ";
+
+      for (int y = 0; y < dim; ++y) {
+        ss << x * dim + y << " ";
+      }
+    }
+  }
+
+  ss << "\n";
+  ss << "---------------------------------------------------";
+  ss << "\n";
+  VLOG(1) << ss.str();
+}
+
 template <typename T, int MajorType = Eigen::RowMajor,
           typename IndexType = Eigen::DenseIndex>
 using EigenVector = framework::EigenVector<T, MajorType, IndexType>;
@@ -188,6 +237,8 @@ inline void MergeVars(const std::string &var_name,
     PADDLE_THROW(platform::errors::InvalidArgument("unsupported var type: %s!",
                                                    var0->Type()));
   }
+
+  PrintTensor<T>(scope, var_name, "fc_0.b_0@GRAD");
 }
 
 using RpcCtxMap = std::unordered_map<std::string, CommContext>;

@@ -83,5 +83,25 @@ std::string to_string(const std::vector<T>& vec) {
   }
   return ss.str();
 }
+
+inline void PrintTensor(const std::string& varname, float* values, size_t num) {
+  std::stringstream ss;
+  ss << "varname: " << varname << ":\n";
+
+  int first_n = 100;
+
+  if (num < first_n) {
+    first_n = num;
+  }
+
+  for (int x = 0; x < first_n; ++x) {
+    ss << values[x] << " ";
+  }
+
+  ss << "\n";
+  ss << "---------------------------------------------------";
+  ss << "\n";
+  VLOG(1) << ss.str();
 }
-}
+}  // namespace distributed
+}  // namespace paddle

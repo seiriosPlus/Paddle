@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/fluid/distributed/table/common_dense_table.h"
+#include "paddle/fluid/distributed/common/utils.h"
 
 #include "paddle/fluid/platform/enforce.h"
 
@@ -126,6 +127,8 @@ int32_t CommonDenseTable::pour() {
 }
 
 int32_t CommonDenseTable::push_dense(const float* values, size_t num) {
+  PrintTensor("DenseVar->Before Merge", values, num);
+
   if (sync) {
     std::future<int> task =
         _shards_task_pool[0]->enqueue([this, &values]() -> int {
@@ -136,6 +139,8 @@ int32_t CommonDenseTable::push_dense(const float* values, size_t num) {
   } else {
     _push_dense(values, num);
   }
+  PrintTensor("DenseVar->After Merge", values, num);
+
   return 0;
 }
 
