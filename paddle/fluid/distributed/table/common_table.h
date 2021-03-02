@@ -60,7 +60,7 @@ struct ReservoirValue {
   }
 
   void reset() {
-    values.resize(dim, 0);
+    std::fill(values.begin(), values.end(), 0);
     counter = 0;
   }
 };
