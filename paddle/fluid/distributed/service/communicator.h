@@ -117,7 +117,7 @@ class BlockingQueue {
 template <typename T>
 inline void PrintTensor(Scope *scope, const std::string &varname,
                         const std::string &spec_varname) {
-  if (spec_varname == varname) {
+  if (spec_varname != varname) {
     return;
   }
 

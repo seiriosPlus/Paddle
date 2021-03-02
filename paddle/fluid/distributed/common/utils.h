@@ -84,7 +84,8 @@ std::string to_string(const std::vector<T>& vec) {
   return ss.str();
 }
 
-inline void PrintTensor(const std::string& varname, float* values, size_t num) {
+inline void PrintTensor(const std::string& varname, const float* values,
+                        size_t num) {
   std::stringstream ss;
   ss << "varname: " << varname << ":\n";
 

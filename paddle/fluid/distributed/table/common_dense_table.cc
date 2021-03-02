@@ -139,7 +139,8 @@ int32_t CommonDenseTable::push_dense(const float* values, size_t num) {
   } else {
     _push_dense(values, num);
   }
-  PrintTensor("DenseVar->After Merge", values, num);
+
+  PrintTensor("DenseVar->After Merge", pull_reservoir_.values.data(), num);
 
   return 0;
 }
